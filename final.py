@@ -15,11 +15,6 @@ from lib.IK_position_null import IK
 from lib.calculateFK import FK
 
 
-
-
-
-
-
 def get_block_world(q_current):
   
     '''detector = ObjectDetector()
@@ -39,8 +34,6 @@ def get_block_world(q_current):
     
     
     return block_world
-
-
 
 
 
@@ -79,14 +72,9 @@ if __name__ == "__main__":
     q_start,_,_, message = ik.inverse(pos, start_position, method='J_pseudo', alpha = 0.5)
     
     
-    
-    
-    
     arm.safe_move_to_position(q_start)
     #arm.safe_move_to_position(q_goal)
     # get the transform from camera to panda_end_effector
-      
-    
     
     block_world = get_block_world(q_start)
     pos = np.array(([0,-1,0],
