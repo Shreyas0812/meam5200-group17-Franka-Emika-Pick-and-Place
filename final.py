@@ -15,6 +15,13 @@ from lib.IK_position_null import IK
 from lib.calculateFK import FK
 
 
+def grab_block():
+    print(arm.get_gripper_state())
+    
+    arm.exec_gripper_cmd(0.05, 50)
+    
+    print(arm.get_gripper_state())
+    
 
 def rotation_matrix_to_angle_axis(R):
    
@@ -39,10 +46,15 @@ def rotation_matrix_to_angle_axis(R):
     
     return angle
 
-
+def drop_block():
+    print(arm.get_gripper_state())
+    
+    arm.open_gripper()
+    
+    print(arm.get_gripper_state())
 
 def get_block_world(q_current, T):
-  
+ 
     '''detector = ObjectDetector()
     fk =  FK()'''
     H_ee_camera = detector.get_H_ee_camera()
@@ -102,8 +114,6 @@ def pick_static(q_current):
 
 
 
-
-
 if __name__ == "__main__":
 
     try:
@@ -121,7 +131,7 @@ if __name__ == "__main__":
     start_position = np.array([0,0,0,-pi/2, 0,pi/2, pi/4])
     arm.safe_move_to_position(start_position) # on your mark!
     
-    
+        
 
     print("\n****************")
     if team == 'blue':
@@ -132,12 +142,35 @@ if __name__ == "__main__":
     input("\nWaiting for start... Press ENTER to begin!\n") # get set!
     print("Go!\n") # go!
 
-    # STUDENT CODE HERE   
-    q_start = pick_static(start_position)
-   
+
+    # STUDENT CODE HERE
+  
+    # q_start = pick_static(start_position)
+
+    print("Opening Gripper")
+    arm.open_gripper()
+
+    ik = IK()
     
-    ''' 
+    print("Moving above blocks")
+    pos = np.array(([0,-1,0,0.6],
+    			[-1,0,0,-0.2], 
+    			[0,0,-1,0.5],
+    			[0,0,0,1]))
+    q_start,_,_, message = ik.inverse(pos, start_position, method='J_pseudo', alpha = 0.5)
+    
+    
+    arm.safe_move_to_position(q_start)
+
+    print("Detect blocks")
+
+    #arm.safe_move_to_position(q_goal)
+    # get the transform from camera to panda_end_effector
+    
     block_world = get_block_world(q_start)
+    
+    print("Moving to block")
+
     pos = np.array(([1,0,0],
     			[0,-1,0], 
     			[0,0,-1],
@@ -146,10 +179,34 @@ if __name__ == "__main__":
     block_pos = block_pos.reshape(4,1)
     ee_goal = np.hstack((pos,block_pos))
     
-    
     q_goal,_,_, message = ik.inverse(ee_goal, q_start, method='J_pseudo', alpha = 0.5)
     
-    arm.safe_move_to_position(q_goal)'''
+    arm.safe_move_to_position(q_goal)
+
+    print("Grabbing the block")
+    grab_block()
+
+    print("Moving above blocks")
+    pos = np.array(([0,-1,0,0.6],
+    			[-1,0,0,-0.2], 
+    			[0,0,-1,0.5],
+    			[0,0,0,1]))
+    q_above,_,_, message = ik.inverse(pos, q_goal, method='J_pseudo', alpha = 0.5)
+
+    arm.safe_move_to_position(q_above)
+
+    print("Moving to goal")
+    pos = np.array(([0,-1,0,0.55],
+    			[-1,0,0,0.2], 
+    			[0,0,-1,0.2],
+    			[0,0,0,1]))
+    q_finish,_,_, message = ik.inverse(pos, q_above, method='J_pseudo', alpha = 0.5)
+
+    arm.safe_move_to_position(q_finish)
+
+    print("Dropping the block")
+    drop_block()
+    
     # Detect some blocks...
     
     # Uncomment to get middle camera depth/rgb images
