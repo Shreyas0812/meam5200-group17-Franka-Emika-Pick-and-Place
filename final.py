@@ -15,6 +15,18 @@ from lib.IK_position_null import IK
 from lib.calculateFK import FK
 
 
+def grab_block():
+    print(arm.get_gripper_state())
+
+    arm.exec_gripper_cmd(0.05, 50)
+    
+    print(arm.get_gripper_state())
+
+def drop_block():
+    print(arm.get_gripper_state())
+
+    arm.open_gripper()
+
 def get_block_world(q_current):
   
     '''detector = ObjectDetector()
@@ -63,8 +75,13 @@ if __name__ == "__main__":
     print("Go!\n") # go!
 
     # STUDENT CODE HERE
+
+    print("Opening Gripper")
+    arm.open_gripper()
+
     ik = IK()
     
+    print("Moving above blocks")
     pos = np.array(([0,-1,0,0.6],
     			[-1,0,0,-0.2], 
     			[0,0,-1,0.5],
@@ -73,10 +90,16 @@ if __name__ == "__main__":
     
     
     arm.safe_move_to_position(q_start)
+
+    print("Detect blocks")
+
     #arm.safe_move_to_position(q_goal)
     # get the transform from camera to panda_end_effector
     
     block_world = get_block_world(q_start)
+
+    print("Moving to block")
+
     pos = np.array(([0,-1,0],
     			[-1,0,0], 
     			[0,0,-1],
@@ -89,6 +112,22 @@ if __name__ == "__main__":
     q_goal,_,_, message = ik.inverse(ee_goal, q_start, method='J_pseudo', alpha = 0.5)
     
     arm.safe_move_to_position(q_goal)
+
+    print("Grabbing the block")
+    grab_block()
+
+    print("Moving above blocks")
+    pos = np.array(([0,-1,0,0.6],
+    			[-1,0,0,-0.2], 
+    			[0,0,-1,0.5],
+    			[0,0,0,1]))
+    q_finish,_,_, message = ik.inverse(pos, q_goal, method='J_pseudo', alpha = 0.5)
+
+    arm.safe_move_to_position(q_finish)
+
+    print("Dropping the block")
+    drop_block()
+    
     # Detect some blocks...
     for (name, pose) in detector.get_detections():
          print(name,'\n',pose)
