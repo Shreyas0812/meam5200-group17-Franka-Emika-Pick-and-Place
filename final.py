@@ -121,7 +121,16 @@ if __name__ == "__main__":
     			[-1,0,0,-0.2], 
     			[0,0,-1,0.5],
     			[0,0,0,1]))
-    q_finish,_,_, message = ik.inverse(pos, q_goal, method='J_pseudo', alpha = 0.5)
+    q_above,_,_, message = ik.inverse(pos, q_goal, method='J_pseudo', alpha = 0.5)
+
+    arm.safe_move_to_position(q_above)
+
+    print("Moving to goal")
+    pos = np.array(([0,-1,0,0.55],
+    			[-1,0,0,0.2], 
+    			[0,0,-1,0.2],
+    			[0,0,0,1]))
+    q_finish,_,_, message = ik.inverse(pos, q_above, method='J_pseudo', alpha = 0.5)
 
     arm.safe_move_to_position(q_finish)
 
