@@ -52,8 +52,9 @@ def rotation_matrix_to_angle_axis(R):
     
     return angle, axis
 
-def get_block_world(q_current, T):
-  
+
+
+def get_block_world(q_current):
     '''detector = ObjectDetector()
     fk =  FK()'''
     H_ee_camera = detector.get_H_ee_camera()
@@ -81,8 +82,8 @@ def move_to_static_view(q_current):
     arm.safe_move_to_position(q_start)
     return q_start
 
-def move_to_static(q_current,T):
-    block_world = get_block_world(q_current,T)
+def move_to_static(q_current):
+    block_world = get_block_world(q_current)
     pos = np.array(([1,0,0],
 	    			[0,-1,0], 
 	    			[0,0,-1],
@@ -91,7 +92,7 @@ def move_to_static(q_current,T):
     block_pos = block_pos.reshape(4,1)
     ee_goal = np.hstack((pos,block_pos))
     
-
+    print("block world: ", block_world)
     print("\tAligning the end effector")
     
     ee_goal_align = ee_goal.copy()
@@ -105,13 +106,15 @@ def move_to_static(q_current,T):
 
     print("\t\tangle is: ", angle)
     print("\t\taxis is: ", axis)
-
+    
     while angle > 2.897 or angle < -2.896:
         print("\t\tadjusting the angle")
         if angle > 2.897:
-            angle -= pi/4
+            angle -= pi/2
         if angle < -2.896:
-            angle +=pi/4
+            angle +=pi/2
+        
+    angle = angle-pi/4   
 
     q_align[-1] = angle
 
@@ -121,7 +124,6 @@ def move_to_static(q_current,T):
     print("\tMoving to Block")
 
     q_goal,_,_, message = ik.inverse(ee_goal, q_align, method='J_pseudo', alpha = 0.5)
-
     q_goal[-1] = angle
     
     arm.safe_move_to_position(q_goal)
@@ -134,10 +136,9 @@ def pick_place_static(q_current):
 
     print("Check if static blocks are on the table")
 
-    H_camera_block = detector.get_detections()
     T = 0
     q_now = q_start
-    while H_camera_block != []:
+    while detector.get_detections() != []:
 
         print("Opening Gripper")
         drop_block()  
@@ -158,7 +159,7 @@ def pick_place_static(q_current):
 
         place_location = np.array(([1,0,0, 0.562],
 	    			[0,-1,0, 0.2], 
-	    			[0,0,-1, 0.25 + T*0.06],
+	    			[0,0,-1,0.25 + T*0.06],
 	    			[0,0,0,1])) 
         
         q_place,_,_, message = ik.inverse(place_location, q_align, method='J_pseudo', alpha = 0.5)
@@ -177,9 +178,6 @@ def pick_place_static(q_current):
         arm.safe_move_to_position(q_above_place)
         
         T+=1
-
-        if T == 4:
-            break
     return q_start
 
 
