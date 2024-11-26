@@ -16,18 +16,18 @@ from lib.calculateFK import FK
 
 
 def grab_block():
-    print(arm.get_gripper_state())
+    # print(arm.get_gripper_state())
     
     arm.exec_gripper_cmd(0.05, 46)
     
-    print(arm.get_gripper_state())
+    # print(arm.get_gripper_state())
 
 def drop_block():
-    print(arm.get_gripper_state())
+    # print(arm.get_gripper_state())
     
     arm.open_gripper()
     
-    print(arm.get_gripper_state())
+    # print(arm.get_gripper_state())
 
 def rotation_matrix_to_angle_axis(R):
    
@@ -73,14 +73,7 @@ def get_block_world(q_current):
     
     return block_world
 
-def move_to_static_view(q_current):
-    pos = np.array(([1,0,0,0.5],
-    			[0,-1,0,-0.2], 
-    			[0,0,-1,0.5],
-    			[0,0,0,1]))
-    q_start,_,_, message = ik.inverse(pos, q_current, method='J_pseudo', alpha = 0.5) 
-    arm.safe_move_to_position(q_start)
-    return q_start
+
 
 def move_to_static(q_current):
     block_world = get_block_world(q_current)
@@ -93,6 +86,7 @@ def move_to_static(q_current):
     ee_goal = np.hstack((pos,block_pos))
     
     print("block world: ", block_world)
+
     print("\tAligning the end effector")
     
     ee_goal_align = ee_goal.copy()
@@ -132,6 +126,10 @@ def move_to_static(q_current):
 
 def pick_place_static(q_current):
     
+    
+    q_start = move_to_static_view(q_current)
+
+
     q_start = move_to_static_view(q_current)
 
     print("Check if static blocks are on the table")
@@ -145,7 +143,7 @@ def pick_place_static(q_current):
 
         print("Moving to static block")
 
-        q_align = move_to_static(q_start, T)
+        q_align = move_to_static(q_now)
 
         print("Grabbing the block")
         
@@ -176,13 +174,42 @@ def pick_place_static(q_current):
         q_above_place,_,_, message = ik.inverse(place_location, q_place, method='J_pseudo', alpha = 0.5)
         
         arm.safe_move_to_position(q_above_place)
+
+        q_now = q_start
         
         T+=1
     return q_start
 
+def move_to_static_view(q_current, team):
 
+    if team == 'red':
+        pos_above_pickup = np.array(([1,0,0,0.52],
+                    [0,-1,0,-0.2], 
+                    [0,0,-1,0.43],
+                    [0,0,0,1]))
 
+        pos_above_drop = np.array(([1,0,0,0.52],
+                    [0,-1,0,0.2], 
+                    [0,0,-1,0.6],
+                    [0,0,0,1]))
+    else:
+        pos_above_pickup = np.array(([1,0,0,0.52],
+                    [0,-1,0,0.2], 
+                    [0,0,-1,0.43],
+                    [0,0,0,1]))
+        
+        pos_above_drop = np.array(([1,0,0,0.52],
+                    [0,-1,0,-0.2], 
+                    [0,0,-1,0.6],
+                    [0,0,0,1]))
+        
+    q_above_pickup,_,_, message = ik.inverse(pos_above_pickup, q_current, method='J_pseudo', alpha = 0.5)
 
+    q_above_drop,_,_, message = ik.inverse(pos_above_drop, q_current, method='J_pseudo', alpha = 0.5)
+
+    arm.safe_move_to_position(q_above_pickup)
+    
+    return q_above_pickup, q_above_drop
 
 if __name__ == "__main__":
 
@@ -213,23 +240,15 @@ if __name__ == "__main__":
     print("Go!\n") # go!
 
     # STUDENT CODE HERE   
-    q_start = pick_place_static(start_position)
-   
-    
-    ''' 
-    block_world = get_block_world(q_start)
-    pos = np.array(([1,0,0],
-    			[0,-1,0], 
-    			[0,0,-1],
-    			[0,0,0]))
-    block_pos = block_world[:,3]
-    block_pos = block_pos.reshape(4,1)
-    ee_goal = np.hstack((pos,block_pos))
-    
-    
-    q_goal,_,_, message = ik.inverse(ee_goal, q_start, method='J_pseudo', alpha = 0.5)
-    
-    arm.safe_move_to_position(q_goal)'''
+
+    # Pick up the Static Blocks
+    move_to_static_view(start_position, team)
+
+    # q_start = pick_place_static(start_position)
+
+    # Move back to the start position
+    # arm.safe_move_to_position(start_position)
+
     # Detect some blocks...
     
     # Uncomment to get middle camera depth/rgb images
