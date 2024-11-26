@@ -73,6 +73,10 @@ def get_block_world(q_current):
     
     
     return block_world
+    
+    
+    
+    
 
 def move_to_static_view(q_current):
     pos = np.array(([1,0,0,0.5],
@@ -93,12 +97,18 @@ def move_to_static(q_current):
     block_pos = block_pos.reshape(4,1)
     ee_goal = np.hstack((pos,block_pos))
     
+    
+    
+    '''for i in range(3):
+        if np.isclose(block_world[2,i], 1, 0.001) or np.isclose(block_world[2,i], 1, 0.001):'''
+            
+        
+    #axis-angle start
     print("block world: ", block_world)
     angle, axis = rotation_matrix_to_angle_axis(block_world[:3,:3])
         
     print("angle is: ", angle)
     print("axis is: ", axis)
-    q_goal,_,_, message = ik.inverse(ee_goal, q_current, method='J_pseudo', alpha = 0.5)
    
     while angle > 2.897 or angle < -2.896:
         print("adjusting the angle")
@@ -106,12 +116,24 @@ def move_to_static(q_current):
             angle -= pi/2
         if angle < -2.896:
             angle +=pi/2
-        
-        
-        
-    angle = angle-pi/4   
-    q_goal[-1] = angle
+    #axis-angle end
+     
+     
+    #move to the align position    
+    ee_align = ee_goal.copy()
+    ee_align[2,3] = 0.4    
+    angle = angle-pi/4
+    q_align,_,_, message = ik.inverse(ee_align, q_current, method='J_pseudo', alpha = 0.5)   
+    q_align[-1] = angle    
+    arm.safe_move_to_position(q_align)
+    print("moved to align position")
+    #end of the move to align position
+    
+    print("ee goal: ",ee_goal)
+    
+    q_goal,_,_, message = ik.inverse(ee_goal, q_align, method='J_pseudo', alpha = 0.5) 
     arm.safe_move_to_position(q_goal)
+    print("moved to goal position")
     return q_goal
 
 def pick_place_static(q_current):
