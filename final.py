@@ -54,7 +54,7 @@ def drop_block():
     
     print(arm.get_gripper_state())
 
-def get_block_world(q_current, T):
+def get_block_world(q_current):
   
     '''detector = ObjectDetector()
     fk =  FK()'''
@@ -64,7 +64,7 @@ def get_block_world(q_current, T):
     H_camera_block = detector.get_detections()
     
     
-    ee_block = H_ee_camera @ H_camera_block[T][1]
+    ee_block = H_ee_camera @ H_camera_block[0][1]
     
     
     _, T0e = fk.forward(q_current)
@@ -83,8 +83,8 @@ def move_to_static_view(q_current):
     arm.safe_move_to_position(q_start)
     return q_start
 
-def move_to_static(q_current,T):
-    block_world = get_block_world(q_current,T)
+def move_to_static(q_current):
+    block_world = get_block_world(q_current)
     pos = np.array(([1,0,0],
 	    			[0,-1,0], 
 	    			[0,0,-1],
@@ -92,22 +92,24 @@ def move_to_static(q_current,T):
     block_pos = block_world[:,3]
     block_pos = block_pos.reshape(4,1)
     ee_goal = np.hstack((pos,block_pos))
+    
+    print("block world: ", block_world)
     angle, axis = rotation_matrix_to_angle_axis(block_world[:3,:3])
         
     print("angle is: ", angle)
     print("axis is: ", axis)
     q_goal,_,_, message = ik.inverse(ee_goal, q_current, method='J_pseudo', alpha = 0.5)
-    circles = angle/(2*pi)
+   
     while angle > 2.897 or angle < -2.896:
         print("adjusting the angle")
         if angle > 2.897:
-            angle -= pi/4
+            angle -= pi/2
         if angle < -2.896:
-            angle +=pi/4
+            angle +=pi/2
         
         
         
-        
+    angle = angle-pi/4   
     q_goal[-1] = angle
     arm.safe_move_to_position(q_goal)
     return q_goal
@@ -115,20 +117,20 @@ def move_to_static(q_current,T):
 def pick_place_static(q_current):
     
     q_start = move_to_static_view(q_current)
-    H_camera_block = detector.get_detections()
+    
     T = 0
     q_now = q_start
-    while H_camera_block != []:
+    while detector.get_detections() != []:
         
         drop_block()  
-        q_goal = move_to_static(q_start, T)
+        q_goal = move_to_static(q_start)
         
         grab_block()
         
         
         pos = np.array(([1,0,0, 0.562],
 	    			[0,-1,0, 0.2], 
-	    			[0,0,-1,0.2 + T*0.05],
+	    			[0,0,-1,0.25 + T*0.06],
 	    			[0,0,0,1])) 
         
         arm.safe_move_to_position(q_start)
@@ -141,8 +143,7 @@ def pick_place_static(q_current):
         arm.safe_move_to_position(q_start)
         
         T+=1
-        if T == 5:
-            break
+        
     return q_start
 
 
