@@ -15,7 +15,6 @@ from lib.IK_position_null import IK
 from lib.calculateFK import FK
 
 
-
 def grab_block():
     print(arm.get_gripper_state())
     
@@ -23,6 +22,12 @@ def grab_block():
     
     print(arm.get_gripper_state())
 
+def drop_block():
+    print(arm.get_gripper_state())
+    
+    arm.open_gripper()
+    
+    print(arm.get_gripper_state())
 
 def rotation_matrix_to_angle_axis(R):
    
@@ -46,13 +51,6 @@ def rotation_matrix_to_angle_axis(R):
     axis = axis / np.linalg.norm(axis)
     
     return angle, axis
-
-def drop_block():
-    print(arm.get_gripper_state())
-    
-    arm.open_gripper()
-    
-    print(arm.get_gripper_state())
 
 def get_block_world(q_current, T):
   
@@ -92,25 +90,43 @@ def move_to_static(q_current,T):
     block_pos = block_world[:,3]
     block_pos = block_pos.reshape(4,1)
     ee_goal = np.hstack((pos,block_pos))
+    
+
+    print("\tAligning the end effector")
+    
+    ee_goal_align = ee_goal.copy()
+    ee_goal_align[2][3] = 0.5
+
+    print(ee_goal_align)
+    
+    q_align,_,_, message = ik.inverse(ee_goal_align, q_current, method='J_pseudo', alpha = 0.5)
+
     angle, axis = rotation_matrix_to_angle_axis(block_world[:3,:3])
-        
-    print("angle is: ", angle)
-    print("axis is: ", axis)
-    q_goal,_,_, message = ik.inverse(ee_goal, q_current, method='J_pseudo', alpha = 0.5)
-    circles = angle/(2*pi)
+
+    print("\t\tangle is: ", angle)
+    print("\t\taxis is: ", axis)
+
     while angle > 2.897 or angle < -2.896:
-        print("adjusting the angle")
+        print("\t\tadjusting the angle")
         if angle > 2.897:
             angle -= pi/4
         if angle < -2.896:
             angle +=pi/4
-        
-        
-        
-        
+
+    q_align[-1] = angle
+
+    arm.safe_move_to_position(q_align)
+
+
+    print("\tMoving to Block")
+
+    q_goal,_,_, message = ik.inverse(ee_goal, q_align, method='J_pseudo', alpha = 0.5)
+
     q_goal[-1] = angle
+    
     arm.safe_move_to_position(q_goal)
-    return q_goal
+
+    return q_align
 
 def pick_place_static(q_current):
     
@@ -122,42 +138,45 @@ def pick_place_static(q_current):
     T = 0
     q_now = q_start
     while H_camera_block != []:
-        
+
+        print("Opening Gripper")
         drop_block()  
-        q_goal = move_to_static(q_start, T)
+
+        print("Moving to static block")
+
+        q_align = move_to_static(q_start, T)
+
+        print("Grabbing the block")
         
         grab_block()
-        
-        
-        pos = np.array(([1,0,0, 0.562],
+
+        print("Move above block")
+
+        arm.safe_move_to_position(q_align)
+
+        print("Go to place position")
+
+        place_location = np.array(([1,0,0, 0.562],
 	    			[0,-1,0, 0.2], 
-	    			[0,0,-1,0.2 + T*0.05],
+	    			[0,0,-1, 0.25 + T*0.06],
 	    			[0,0,0,1])) 
         
-        arm.safe_move_to_position(q_start)
-        
-        q_place,_,_, message = ik.inverse(pos, q_start, method='J_pseudo', alpha = 0.5)
+        q_place,_,_, message = ik.inverse(place_location, q_align, method='J_pseudo', alpha = 0.5)
         
         arm.safe_move_to_position(q_place)
         
+        print("Drop the block")
+
         drop_block()
-        arm.safe_move_to_position(q_start)
+
+        print("Move above drop location")
+
+        place_location[2][3] = 0.5
+        q_above_place,_,_, message = ik.inverse(place_location, q_place, method='J_pseudo', alpha = 0.5)
+        
+        arm.safe_move_to_position(q_above_place)
         
         T+=1
-
-        print("Moving to goal")
-        pos = np.array(([0,-1,0,0.55],
-                    [-1,0,0,0.2], 
-                    [0,0,-1,T*0.2],
-                    [0,0,0,1]))
-        q_finish,_,_, message = ik.inverse(pos, q_start, method='J_pseudo', alpha = 0.5)
-
-        arm.safe_move_to_position(q_finish)
-
-        print("Dropping the block")
-        drop_block()
-
-        arm.safe_move_to_position(q_start)
 
         if T == 4:
             break
