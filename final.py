@@ -33,7 +33,7 @@ def rotation_matrix_to_angle_axis(R):
    
     assert R.shape == (3, 3)
     
-    
+
     angle = np.arccos((np.trace(R) - 1) / 2)
     
    
@@ -55,17 +55,24 @@ def rotation_matrix_to_angle_axis(R):
 
 
 def get_block_world(q_current):
+
+    block_world = np.zeros((4, 4))
+
     H_ee_camera = detector.get_H_ee_camera()
 
     H_camera_block = detector.get_detections()
+
+    if H_camera_block != []:
     
-    ee_block = H_ee_camera @ H_camera_block[0][1]
+        ee_block = H_ee_camera @ H_camera_block[0][1]
     
-    _, T0e = fk.forward(q_current)
+        _, T0e = fk.forward(q_current)
     
-    block_world = T0e @ ee_block
-    
-    return block_world
+        block_world = T0e @ ee_block
+
+        return len(H_camera_block), block_world
+    else:
+        return len(H_camera_block), block_world
 
 
 def move_to_place(q_align, T, team):
@@ -131,18 +138,20 @@ def pick_place_static(q_above_pickup, q_above_drop, team):
 
     q_now = q_above_pickup
 
-    # block_world = get_block_world(q_above_pickup)
+    numBlocksDetected, block_world = get_block_world(q_above_pickup)
+    print("block world: ", block_world)
 
-    while detector.get_detections() != []:
+    num_original_block_detected = numBlocksDetected
+
+    while numBlocksDetected:
+
+        T = num_original_block_detected - numBlocksDetected
 
         print("Pickup Sequence")
         print("Opening Gripper")
         drop_block()  
 
         print("Moving to static block")
-
-        block_world = get_block_world(q_above_pickup)
-        print("block world: ", block_world)
 
         q_align, q_goal = move_to_static(block_world, q_now)
 
@@ -180,7 +189,10 @@ def pick_place_static(q_above_pickup, q_above_drop, team):
 
         arm.safe_move_to_position(q_above_pickup)
 
-        T+=1
+        numBlocksDetected, block_world = get_block_world(q_above_pickup)
+
+    else:
+        print("Pick Place Static Completed")
 
 def get_static_view(q_current, team):
 
