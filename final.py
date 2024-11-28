@@ -18,14 +18,14 @@ from lib.calculateFK import FK
 def grab_block():
     # print(arm.get_gripper_state())
     
-    arm.exec_gripper_cmd(0.05, 50)
+    arm.exec_gripper_cmd(0.048, 52)
     
     # print(arm.get_gripper_state())
 
 def drop_block():
     # print(arm.get_gripper_state())
     
-    arm.exec_gripper_cmd(0.07, 10)
+    arm.exec_gripper_cmd(0.09, 10)
     
     # print(arm.get_gripper_state())
 
@@ -55,23 +55,18 @@ def rotation_matrix_to_angle_axis(R):
 
 
 def get_block_world(q_current):
-    '''detector = ObjectDetector()
-    fk =  FK()'''
     H_ee_camera = detector.get_H_ee_camera()
-    
-    
+
     H_camera_block = detector.get_detections()
     
-    
     ee_block = H_ee_camera @ H_camera_block[0][1]
-    
     
     _, T0e = fk.forward(q_current)
     
     block_world = T0e @ ee_block
     
-    
     return block_world
+
 
 def move_to_place(q_align, T, team):
     if team == 'red':
@@ -111,14 +106,7 @@ def move_to_static(block_world, q_current):
         if angle < -2.896:
             angle +=pi/2
 
-    angle = angle-pi/4
-
-    '''
-    for i in range(3):
-        if np.isclose(block_world[2,i], 1, 0.001) or np.isclose(block_world[2,i], 1, 0.001):
-    '''
-
-    #axis-angle start
+    # angle = angle-pi/4
 
     print("Calculating Aligning the end effector")
     
@@ -142,6 +130,8 @@ def pick_place_static(q_above_pickup, q_above_drop, team):
     q_above_pickup
 
     q_now = q_above_pickup
+
+    # block_world = get_block_world(q_above_pickup)
 
     while detector.get_detections() != []:
 
@@ -187,6 +177,8 @@ def pick_place_static(q_above_pickup, q_above_drop, team):
         arm.safe_move_to_position(q_above_drop)
 
         q_now = q_above_pickup
+
+        arm.safe_move_to_position(q_above_pickup)
 
         T+=1
 
@@ -251,6 +243,7 @@ if __name__ == "__main__":
 
     # Task: Pick and Place the Static Blocks
     
+    # Get the static positions above pickup to detect blocks and above place to place them
     q_above_pickup, q_above_drop = get_static_view(start_position, team)
     
     print("Moving above static block pickup")
