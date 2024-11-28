@@ -73,67 +73,16 @@ def get_block_world(q_current):
     
     return block_world
 
-
-
-# def move_to_static(q_current):
-#     block_world = get_block_world(q_current)
-#     pos = np.array(([1,0,0],
-# 	    			[0,-1,0], 
-# 	    			[0,0,-1],
-# 	    			[0,0,0]))
-#     block_pos = block_world[:,3]
-#     block_pos = block_pos.reshape(4,1)
-#     ee_goal = np.hstack((pos,block_pos))
-    
-#     print("block world: ", block_world)
-
-#     print("\tAligning the end effector")
-    
-#     ee_goal_align = ee_goal.copy()
-#     ee_goal_align[2][3] = 0.5
-
-#     print(ee_goal_align)
-    
-#     q_align,_,_, message = ik.inverse(ee_goal_align, q_current, method='J_pseudo', alpha = 0.5)
-
-#     angle, axis = rotation_matrix_to_angle_axis(block_world[:3,:3])
-
-#     print("\t\tangle is: ", angle)
-#     print("\t\taxis is: ", axis)
-    
-#     while angle > 2.897 or angle < -2.896:
-#         print("\t\tadjusting the angle")
-#         if angle > 2.897:
-#             angle -= pi/2
-#         if angle < -2.896:
-#             angle +=pi/2
-        
-#     angle = angle-pi/4   
-
-#     q_align[-1] = angle
-
-#     arm.safe_move_to_position(q_align)
-
-
-#     print("\tMoving to Block")
-
-#     q_goal,_,_, message = ik.inverse(ee_goal, q_align, method='J_pseudo', alpha = 0.5)
-#     q_goal[-1] = angle
-    
-#     arm.safe_move_to_position(q_goal)
-
-#     return q_align
-
 def move_to_place(q_align, T, team):
     if team == 'red':
         place_location = np.array(([1,0,0, 0.562],
 	    			[0,-1,0, 0.2], 
-	    			[0,0,-1,0.25 + T*0.06],
+	    			[0,0,-1,0.22 + T*0.055],
 	    			[0,0,0,1]))
     else:
         place_location = np.array(([1,0,0, 0.562],
 	    			[0,-1,0, -0.2], 
-	    			[0,0,-1,0.25 + T*0.06],
+	    			[0,0,-1,0.22 + T*0.055],
 	    			[0,0,0,1]))
         
     q_place,_,_, message = ik.inverse(place_location, q_align, method='J_pseudo', alpha = 0.5)
@@ -181,6 +130,7 @@ def move_to_static(block_world, q_current):
 
     print("Calculating Goal of end effector")
     q_goal,_,_, message = ik.inverse(ee_goal, q_align, method='J_pseudo', alpha = 0.5)
+    q_goal[-1] = angle
 
     return q_align, q_goal
 
@@ -215,11 +165,17 @@ def pick_place_static(q_above_pickup, q_above_drop, team):
         print("Grabbing the block")
         grab_block()
 
-        print("Move above block")
-        arm.safe_move_to_position(q_align)
+        # print("Move above block")
+        # arm.safe_move_to_position(q_align)
+
+        print("Move above drop")
+        arm.safe_move_to_position(q_above_drop)
+
+        # print("Place Sequence")
+        # q_place = move_to_place(q_align, T, team)
 
         print("Place Sequence")
-        q_place = move_to_place(q_align, T, team)
+        q_place = move_to_place(q_goal, T, team)
 
         print("Go to place position")
         arm.safe_move_to_position(q_place)
@@ -229,8 +185,8 @@ def pick_place_static(q_above_pickup, q_above_drop, team):
 
         print("Move above drop location")
         arm.safe_move_to_position(q_above_drop)
-        
-        q_now = q_above_drop
+
+        q_now = q_above_pickup
 
         T+=1
 
