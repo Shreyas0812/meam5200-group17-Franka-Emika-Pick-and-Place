@@ -113,7 +113,7 @@ def move_to_static(block_world, q_current):
         if angle < -2.896:
             angle +=pi/2
 
-    # angle = angle-pi/4
+    angle = angle-pi/4
 
     print("Calculating Aligning the end effector")
     
