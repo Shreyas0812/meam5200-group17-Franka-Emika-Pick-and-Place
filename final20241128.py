@@ -34,9 +34,7 @@ def rotation_matrix_to_angle_axis(R):
     assert R.shape == (3, 3)
     
 
-
-    '''angle = np.arccos((np.trace(R) - 1) / 2)
-
+    angle = np.arccos((np.trace(R) - 1) / 2)
     
    
     if np.isclose(angle, 0):
@@ -52,55 +50,7 @@ def rotation_matrix_to_angle_axis(R):
     
     axis = axis / np.linalg.norm(axis)
     
-    
-    print("angle is: ", angle)
-    print("axis is: ", axis)
-   
-    while angle > 2.897 or angle < -2.896:
-        print("Adjusting the angle")
-        if angle > 2.897:
-            angle -= pi/2
-        if angle < -2.896:
-            angle +=pi/2
-            
-    angle = angle-pi/4'''
-    
-    
-    axis = 0
-    angsin = 0
-    angcos = 0
-    for i in range(3):
-        if np.isclose(R[2,i], 1, 1e-04):
-            axis = i
-    if axis ==0:
-        angcos = R[1,1]
-        angsin = R[0,1]
-    else:
-        angcos = R[1,0]
-        angsin = R[0,0]
-        
-        
-        
-    angle1 = np.arccos(angcos)
-    angle2 = np.arccos(angsin)
-    angle = angle1
-    if angle1 > angle2:
-        angle = angle2
-    while angle > 2.897 or angle < -2.896:
-        print("Adjusting the angle")
-        if angle > 2.897:
-            angle -= pi/2
-        if angle < -2.896:
-            angle +=pi/2
-        
-    
-
-
-    
-    return angle
-    
-    
-    
+    return angle, axis
 
 
 
@@ -114,7 +64,6 @@ def get_block_world(q_current):
 
     if H_camera_block != []:
     
-
         ee_block = H_ee_camera @ H_camera_block[0][1]
     
         _, T0e = fk.forward(q_current)
@@ -124,7 +73,6 @@ def get_block_world(q_current):
         return len(H_camera_block), block_world
     else:
         return len(H_camera_block), block_world
-
 
 
 def move_to_place(q_align, T, team):
@@ -151,16 +99,21 @@ def move_to_static(block_world, q_current):
 	    			[0,0,0]))
     block_pos = block_world[:,3]
     block_pos = block_pos.reshape(4,1)
-
-
     ee_goal = np.hstack((ee_rot,block_pos))
-    print("block_world: ", block_world)
-    angle = rotation_matrix_to_angle_axis(block_world[:3,:3])
+
+    angle, axis = rotation_matrix_to_angle_axis(block_world[:3,:3])
     
-
     print("angle is: ", angle)
+    print("axis is: ", axis)
    
+    while angle > 2.897 or angle < -2.896:
+        print("Adjusting the angle")
+        if angle > 2.897:
+            angle -= pi/2
+        if angle < -2.896:
+            angle +=pi/2
 
+    angle = angle-pi/4
 
     print("Calculating Aligning the end effector")
     
@@ -271,6 +224,7 @@ def get_static_view(q_current, team):
     return q_above_pickup, q_above_drop
 
 if __name__ == "__main__":
+
     try:
         team = rospy.get_param("team") # 'red' or 'blue'
     except KeyError:
@@ -281,10 +235,12 @@ if __name__ == "__main__":
 
     arm = ArmController()
     detector = ObjectDetector()
-    
-
-    start_position = np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866])
+    fk =  FK()
+    ik = IK()
+    start_position = np.array([0,0,0,-pi/2, 0,pi/2, pi/4])
     arm.safe_move_to_position(start_position) # on your mark!
+    
+    
 
     print("\n****************")
     if team == 'blue':
@@ -295,10 +251,7 @@ if __name__ == "__main__":
     input("\nWaiting for start... Press ENTER to begin!\n") # get set!
     print("Go!\n") # go!
 
-    # STUDENT CODE HERE
-
-    fk = FK()
-    ik = IK()
+    # STUDENT CODE HERE   
 
     # Task: Pick and Place the Static Blocks
     
@@ -310,13 +263,11 @@ if __name__ == "__main__":
 
     pick_place_static(q_above_pickup, q_above_drop, team)
 
-    # get the transform from camera to panda_end_effector
-    # H_ee_camera = detector.get_H_ee_camera()
+    # Move back to the start position
+    # arm.safe_move_to_position(start_position)
 
     # Detect some blocks...
-    # for (name, pose) in detector.get_detections():
-    #      print(name,'\n',pose)
-
+    
     # Uncomment to get middle camera depth/rgb images
     # mid_depth = detector.get_mid_depth()
     # mid_rgb = detector.get_mid_rgb()
