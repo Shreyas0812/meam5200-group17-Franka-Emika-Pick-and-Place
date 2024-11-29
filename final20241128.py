@@ -224,6 +224,7 @@ def get_static_view(q_current, team):
     return q_above_pickup, q_above_drop
 
 if __name__ == "__main__":
+
     try:
         team = rospy.get_param("team") # 'red' or 'blue'
     except KeyError:
@@ -234,10 +235,12 @@ if __name__ == "__main__":
 
     arm = ArmController()
     detector = ObjectDetector()
-    
-
-    start_position = np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866])
+    fk =  FK()
+    ik = IK()
+    start_position = np.array([0,0,0,-pi/2, 0,pi/2, pi/4])
     arm.safe_move_to_position(start_position) # on your mark!
+    
+    
 
     print("\n****************")
     if team == 'blue':
@@ -248,10 +251,7 @@ if __name__ == "__main__":
     input("\nWaiting for start... Press ENTER to begin!\n") # get set!
     print("Go!\n") # go!
 
-    # STUDENT CODE HERE
-
-    fk = FK()
-    ik = IK()
+    # STUDENT CODE HERE   
 
     # Task: Pick and Place the Static Blocks
     
@@ -263,13 +263,11 @@ if __name__ == "__main__":
 
     pick_place_static(q_above_pickup, q_above_drop, team)
 
-    # get the transform from camera to panda_end_effector
-    # H_ee_camera = detector.get_H_ee_camera()
+    # Move back to the start position
+    # arm.safe_move_to_position(start_position)
 
     # Detect some blocks...
-    # for (name, pose) in detector.get_detections():
-    #      print(name,'\n',pose)
-
+    
     # Uncomment to get middle camera depth/rgb images
     # mid_depth = detector.get_mid_depth()
     # mid_rgb = detector.get_mid_rgb()
