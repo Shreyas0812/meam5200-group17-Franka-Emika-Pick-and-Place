@@ -34,7 +34,9 @@ def rotation_matrix_to_angle_axis(R):
     assert R.shape == (3, 3)
     
 
-    angle = np.arccos((np.trace(R) - 1) / 2)
+
+    '''angle = np.arccos((np.trace(R) - 1) / 2)
+
     
    
     if np.isclose(angle, 0):
@@ -50,7 +52,55 @@ def rotation_matrix_to_angle_axis(R):
     
     axis = axis / np.linalg.norm(axis)
     
-    return angle, axis
+    
+    print("angle is: ", angle)
+    print("axis is: ", axis)
+   
+    while angle > 2.897 or angle < -2.896:
+        print("Adjusting the angle")
+        if angle > 2.897:
+            angle -= pi/2
+        if angle < -2.896:
+            angle +=pi/2
+            
+    angle = angle-pi/4'''
+    
+    
+    axis = 0
+    angsin = 0
+    angcos = 0
+    for i in range(3):
+        if np.isclose(R[2,i], 1, 1e-04):
+            axis = i
+    if axis ==0:
+        angcos = R[1,1]
+        angsin = R[0,1]
+    else:
+        angcos = R[1,0]
+        angsin = R[0,0]
+        
+        
+        
+    angle1 = np.arccos(angcos)
+    angle2 = np.arccos(angsin)
+    angle = angle1
+    if angle1 > angle2:
+        angle = angle2
+    while angle > 2.897 or angle < -2.896:
+        print("Adjusting the angle")
+        if angle > 2.897:
+            angle -= pi/2
+        if angle < -2.896:
+            angle +=pi/2
+        
+    
+
+
+    
+    return angle
+    
+    
+    
 
 
 
@@ -64,6 +114,7 @@ def get_block_world(q_current):
 
     if H_camera_block != []:
     
+
         ee_block = H_ee_camera @ H_camera_block[0][1]
     
         _, T0e = fk.forward(q_current)
@@ -73,6 +124,7 @@ def get_block_world(q_current):
         return len(H_camera_block), block_world
     else:
         return len(H_camera_block), block_world
+
 
 
 def move_to_place(q_align, T, team):
@@ -99,21 +151,16 @@ def move_to_static(block_world, q_current):
 	    			[0,0,0]))
     block_pos = block_world[:,3]
     block_pos = block_pos.reshape(4,1)
+
+
     ee_goal = np.hstack((ee_rot,block_pos))
-
-    angle, axis = rotation_matrix_to_angle_axis(block_world[:3,:3])
+    print("block_world: ", block_world)
+    angle = rotation_matrix_to_angle_axis(block_world[:3,:3])
     
-    print("angle is: ", angle)
-    print("axis is: ", axis)
-   
-    while angle > 2.897 or angle < -2.896:
-        print("Adjusting the angle")
-        if angle > 2.897:
-            angle -= pi/2
-        if angle < -2.896:
-            angle +=pi/2
 
-    angle = angle-pi/4
+    print("angle is: ", angle)
+   
+
 
     print("Calculating Aligning the end effector")
     
