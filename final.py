@@ -13,6 +13,7 @@ from core.interfaces import ObjectDetector
 from core.utils import time_in_seconds
 from lib.IK_position_null import IK
 from lib.calculateFK import FK
+import time
 
 
 def grab_block():
@@ -84,8 +85,7 @@ def rotation_matrix_to_angle_axis(R):
     angle1 = np.arccos(angcos)
     angle2 = np.arccos(angsin)
     angle = angle1
-    if angle1 > angle2:
-        angle = angle2
+    
     while angle > 2.897 or angle < -2.896:
         print("Adjusting the angle")
         if angle > 2.897:
@@ -96,7 +96,7 @@ def rotation_matrix_to_angle_axis(R):
     
 
 
-    
+   
     return angle
     
     
@@ -154,7 +154,7 @@ def move_to_static(block_world, q_current):
 
 
     ee_goal = np.hstack((ee_rot,block_pos))
-    print("block_world: ", block_world)
+    print("block_worq_align[-1] + angleld: ", block_world)
     angle = rotation_matrix_to_angle_axis(block_world[:3,:3])
     
 
@@ -168,11 +168,11 @@ def move_to_static(block_world, q_current):
     ee_align[2, 3] = 0.4
 
     q_align,_,_, message = ik.inverse(ee_align, q_current, method='J_pseudo', alpha = 0.5)   
-    q_align[-1] = angle
+    q_align[-1] = q_align[-1] - angle
 
     print("Calculating Goal of end effector")
     q_goal,_,_, message = ik.inverse(ee_goal, q_align, method='J_pseudo', alpha = 0.5)
-    q_goal[-1] = angle
+    q_goal[-1] = q_align[-1] 
 
     return q_align, q_goal
 
@@ -269,6 +269,50 @@ def get_static_view(q_current, team):
     q_above_drop,_,_, message = ik.inverse(pos_above_drop, q_current, method='J_pseudo', alpha = 0.5)
 
     return q_above_pickup, q_above_drop
+    
+    
+    
+    
+    
+def move_to_dynamic_pick(q_current, q_above_drop):
+    
+    dynamicP = np.array(([0,0,-1, -0.2], [0,1,0, -0.7], [1,0,0, 0.4],[0,0,0,1]))
+    q_dynamicP,_,_, message = ik.inverse(dynamicP, q_current, method='J_pseudo', alpha = 0.5)
+    print("dynamicP: ", dynamicP)
+    q_dynamicP = [0.4, 1.76, pi/2, -1, 0, 1.8, -1]
+    drop_block()
+    arm.safe_move_to_position(q_dynamicP)
+    q_dynamicP = [0.7, 1.76, pi/2, -1, 0, 1.2, -1]
+    arm.safe_move_to_position(q_dynamicP)
+    
+    
+    H_ee_camera = detector.get_H_ee_camera()
+
+    H_camera_block = detector.get_detections()
+    
+    for i in range(len(H_camera_block)):
+    	ee_block = H_ee_camera @ H_camera_block[i][1]
+    	trans = ee_block[:3, 3]
+    	wait_time = 0
+    	while np.sum(trans) > 0.1:
+            time.sleep(2) 
+            wait_time+=2
+            if wait_time > 10:
+                break  
+    grab_block()            
+    arm.safe_move_to_position(q_above_drop)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
 
 if __name__ == "__main__":
     try:
@@ -305,10 +349,18 @@ if __name__ == "__main__":
     # Get the static positions above pickup to detect blocks and above place to place them
     q_above_pickup, q_above_drop = get_static_view(start_position, team)
     
-    print("Moving above static block pickup")
+    '''print("Moving above static block pickup")
     arm.safe_move_to_position(q_above_pickup)
 
-    pick_place_static(q_above_pickup, q_above_drop, team)
+    pick_place_static(q_above_pickup, q_above_drop, team)'''
+    
+    
+    
+    move_to_dynamic_pick(start_position, q_above_drop)
+
+
+
+
 
     # get the transform from camera to panda_end_effector
     # H_ee_camera = detector.get_H_ee_camera()
