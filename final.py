@@ -291,10 +291,10 @@ def move_to_dynamic_pick(q_current, q_above_drop):
     H_camera_block = detector.get_detections()
     
     for i in range(len(H_camera_block)):
-    	ee_block = H_ee_camera @ H_camera_block[i][1]
-    	trans = ee_block[:3, 3]
-    	wait_time = 0
-    	while np.sum(trans) > 0.1:
+        ee_block = H_ee_camera @ H_camera_block[i][1]
+        trans = ee_block[:3, 3]
+        wait_time = 0
+        while np.sum(trans) > 0.1:
             time.sleep(2) 
             wait_time+=2
             if wait_time > 10:
@@ -349,14 +349,14 @@ if __name__ == "__main__":
     # Get the static positions above pickup to detect blocks and above place to place them
     q_above_pickup, q_above_drop = get_static_view(start_position, team)
     
-    '''print("Moving above static block pickup")
+    print("Moving above static block pickup")
     arm.safe_move_to_position(q_above_pickup)
 
-    pick_place_static(q_above_pickup, q_above_drop, team)'''
+    pick_place_static(q_above_pickup, q_above_drop, team)
     
     
     
-    move_to_dynamic_pick(start_position, q_above_drop)
+    # move_to_dynamic_pick(start_position, q_above_drop)
 
 
 
