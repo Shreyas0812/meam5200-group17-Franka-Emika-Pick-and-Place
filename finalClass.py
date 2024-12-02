@@ -26,22 +26,23 @@ class Pick_and_Place:
 
         # Static Block
         self.q_above_pickup = None
+        self.q_above_drop = None
 
         # Dynamic Block
         self.q_above_rotate = None
-        self.q_above_drop = None
 
     # Move to given position via inverse kinematics
     # Note: This function is not used for now
-    def move_via_ik(self, pos, q_start):
+    def calculate_q_via_ik(self, pos, q_start):
         q_end, rollout, success, message = self.ik.inverse(pos, q_start, method='J_pseudo', alpha = 0.5)
         
         if success:
-            self.arm.safe_move_to_position(q_end)
+            return q_end
         else:
             print('Failed to find IK Solution: ')
             print('pos: ', pos)
             print('q_start: ', q_start)
+            return None
 
     def get_block_world(self, q_current):
 
@@ -59,6 +60,14 @@ class Pick_and_Place:
 
             if cur_block[1, 3] < -0.07 and self.team == 'red':
                 block_world.append(cur_block)
+                # Sort the blocks based on the y position in reverse order
+                block_world = sorted(block_world, key=lambda x: x[1,3], reverse=True)
+
+            if cur_block[1, 3] > 0.07 and self.team == 'blue':
+                block_world.append(cur_block)
+                # Sort the blocks based on the y position
+                block_world = sorted(block_world, key=lambda x: x[1,3])
+
 
         return len(block_world), block_world
 
@@ -108,8 +117,8 @@ class Pick_and_Place:
                         [0,-1,0, -0.2], 
                         [0,0,-1,0.22 + T*0.055],
                         [0,0,0,1]))
-        
-        q_place, rollout, success, message = self.ik.inverse(place_location, self.q_above_drop, method='J_pseudo', alpha = 0.5)
+
+        q_place = self.calculate_q_via_ik(place_location, self.q_above_drop)
 
         return q_place
 
@@ -128,12 +137,14 @@ class Pick_and_Place:
 
         ee_align = deepcopy(ee_goal)
         ee_align[2, 3] = 0.4
+        
+        q_align = self.calculate_q_via_ik(ee_align, q_current)
+        if q_align is not None:
+            q_align[-1] = q_align[-1] - angle
 
-        q_align, rollout, success, message = self.ik.inverse(ee_align, q_current, method='J_pseudo', alpha = 0.5)
-        q_align[-1] = q_align[-1] - angle
-
-        q_block, rollout, success, message = self.ik.inverse(ee_goal, q_align, method='J_pseudo', alpha = 0.5)
-        q_block[-1] = q_block[-1] - angle 
+        q_block = self.calculate_q_via_ik(ee_goal, q_align)
+        if q_block is not None:
+            q_block[-1] = q_block[-1] - angle 
 
         return q_align, q_block
 
@@ -210,21 +221,9 @@ class Pick_and_Place:
                                        [0, 0,-1, 0.6  ],
                                        [0, 0, 0, 1    ]))
 
-        q_above_pickup, rollout, success, message = self.ik.inverse(pos_above_pickup, q_current, method='J_pseudo', alpha = 0.5)
+        self.q_above_pickup = self.calculate_q_via_ik(pos_above_pickup, q_current)
 
-        if success:
-            self.q_above_pickup = q_above_pickup
-        else:
-            print('Failed to find IK solution for q_above_pickup')
-            print(message)
-
-        q_above_drop, rollout,success, message = self.ik.inverse(pos_above_drop, q_current, method='J_pseudo', alpha = 0.5)
-
-        if success:
-            self.q_above_drop = q_above_drop
-        else:
-            print('Failed to find IK solution for q_above_drop')
-            print(message)
+        self.q_above_drop = self.calculate_q_via_ik(pos_above_drop, q_current)
 
     # Dynamic Block Pick and Place
     def get_dynamic_block_view(self, q_current):
@@ -242,14 +241,7 @@ class Pick_and_Place:
                                        [0, 0,-1, 0.1 ],
                                        [0, 0, 0, 1   ]))
         
-        q_above_rotate, rollout, success, message = self.ik.inverse(q_above_rotate, q_current, method='J_pseudo', alpha = 0.5)
-
-        if success:
-            self.q_above_rotate = q_above_rotate
-        else:
-            print('Failed to find IK solution for q_above_rotate')
-            print(message)
-            # print('Rollout:', rollout)
+        self.q_above_rotate = self.calculate_q_via_ik(q_above_rotate, q_current)
 
 if __name__ == "__main__":
     try:
@@ -277,7 +269,8 @@ if __name__ == "__main__":
 
     # STUDENT CODE HERE
 
-    print(time_in_seconds(), " Starting Static Pick and Place")
+    start_time = time_in_seconds()
+    print(start_time, " Starting Static Pick and Place")
 
     # Create the Pick_and_Place object
     pick_and_place = Pick_and_Place(team, arm, detector)
@@ -286,8 +279,11 @@ if __name__ == "__main__":
 
     pick_and_place.pick_place_static()
 
-    print(time_in_seconds(), " Finished Static Pick and Place")
+    finish_time = time_in_seconds()
+    print(finish_time, " Finished Static Pick and Place")
 
+    run_time = finish_time - start_time
+    print("Run Time: ", run_time)
     # pick_and_place.get_dynamic_block_view(start_position)
 
     # get the transform from camera to panda_end_effector
