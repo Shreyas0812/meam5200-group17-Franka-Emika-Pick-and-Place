@@ -292,7 +292,8 @@ if __name__ == "__main__":
         # # Detect where to place from the iteration
         # q_place = move_to_place(iteration, q_above_drop)
 
-        #EDIT THE BLOCK WORLD TO RETURN DICTIONARIES, WILL BE LOT MROE USEFUL
+        #EDIT THE BLOCK WORLD TO RETURN DICTIONARIES, WILL BE LOT MROE USEFUL WITH NOISE
+        ########################################################################
 
         # Move to the place location
         print("Moving to the place location")
