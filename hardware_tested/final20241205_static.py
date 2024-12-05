@@ -295,9 +295,7 @@ if __name__ == "__main__":
     # get the transform from camera to panda_end_effector
     # H_ee_camera = detector.get_H_ee_camera()
 
-    # Detect some blocks...
-    # for (name, pose) in detector.get_detections():
-    #      print(name,'\n',pose)
+    # Detect some blocks...3 ],
 
     # Uncomment to get middle camera depth/rgb images
     # mid_depth = detector.get_mid_depth()
@@ -306,4 +304,4 @@ if __name__ == "__main__":
     # Move around...
     end_time = time_in_seconds()
     print("Time taken: ", end_time - start_time, " seconds")
-    # END STUDENT CODE
+    # END STUDENT CODE3 ],
