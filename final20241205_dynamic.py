@@ -86,6 +86,11 @@ def get_block_world(q_current, num_detects=1):
 
 
 
+
+
+
+
+
 def rotation_matrix_to_angle_axis(R):
 
         assert R.shape == (3, 3)
@@ -137,8 +142,18 @@ def move_to_static_block(block, q_current):
         q_block = calculate_q_via_ik(ee_goal, q_align)
         if q_block is not None:
             q_block[-1] = q_block[-1] - angle 
-
+            
+  
         return q_align, q_block
+        
+        
+        
+     
+        
+        
+        
+        
+        
 
 def set_static_view(q_current):
 
@@ -186,6 +201,74 @@ def move_to_place(T):
         q_place = calculate_q_via_ik(place_location, q_above_drop)
 
         return q_place
+        
+        
+ 
+ 
+def get_dynamic_block_view(q_current):
+    if team == 'red':
+        pos_above_rotate = np.array(([1, 0, 0, 0   ],
+                                       [0,-1, 0, 0.7 ],
+                                       [0, 0,-1, 0.4 ],
+                                       [0, 0, 0, 1   ]))
+            
+            
+    else:
+        pos_above_rotate = np.array(([1, 0, 0, 0   ],
+                                       [0,-1, 0, -0.7],
+                                       [0, 0,-1, 0.4 ],
+                                       [0, 0, 0, 1   ]))
+    
+    
+    q_above_rotate = calculate_q_via_ik(pos_above_rotate, q_current)   
+    q_above_rotate[-1] = q_above_rotate[-1] - (pi) 
+    q_above_rotate[4] = q_above_rotate[4] 
+     
+    return q_above_rotate
+ 
+ 
+ 
+def dynamic_adjustment(x,y, theta, v):
+
+    x = x + v*np.cos(theta)
+    y = y + v*np.sin(theta)
+    return x,y
+ 
+def move_to_dynamic_block(block, q_current):
+
+        ee_rot = np.array(([1,0,0],
+	    			[0,-1,0], 
+	    			[0,0,-1],
+	    			[0,0,0]))
+        block_pos = block[:,3]
+        block_pos = block_pos.reshape(4,1)
+        ee_goal = np.hstack((ee_rot,block_pos))
+        print("ee_goal_before adjustment: ", ee_goal)
+        x = ee_goal[0, 3]
+        y = ee_goal[1, 3]
+        xn,yn =  dynamic_adjustment(x,y, 0.1, 0.1)
+        
+        ee_goal[0, 3] = xn
+        ee_goal[1, 3] = yn
+        print("ee_goal_ adjustment: ", ee_goal)
+        q_block = calculate_q_via_ik(ee_goal, q_current)
+        print("q_block---: ", q_block)
+        q_block[-1] = q_block[-1] - (pi)
+        
+        
+        
+        return q_block
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+        
+        
 
 if __name__ == "__main__":
     try:
@@ -231,6 +314,77 @@ if __name__ == "__main__":
     # Static Pick and Place
     q_above_pickup, q_above_drop = set_static_view(start_position)
 
+    q_above_rotate = get_dynamic_block_view(start_position)
+
+   
+    
+    
+    
+    ############################################  dynamic  ##########################################################
+    # Move to the above pickup position
+    print("Moving to above pickup position")
+    arm.safe_move_to_position(q_above_rotate)
+
+    # Get the block world position
+    print("Getting the block world position")
+    block_count, block_world = get_block_world(q_above_rotate)
+    
+    print("dynamic_block_count: ", block_count)
+    
+    
+    org_block_count = block_count
+    
+    while block_count > 0:
+        
+        ####################################################################################################
+
+        # Pick Sequence
+        print("Starting the pick sequence")
+
+        # Open the gripper
+        print("Opening the gripper")
+        drop_block(drop_ee_dist, drop_ee_force)
+
+        # Move to the block
+        
+        q_block = move_to_dynamic_block(block_world[0], q_above_rotate)
+        print("Moving to the block")
+        arm.safe_move_to_position(q_block)
+
+        # Close the gripper
+        print("Closing the gripper")
+        grab_block(grab_ee_dist, grab_ee_force)
+
+        #################################################################################################### 
+
+        # Place Sequence
+        print("Starting the place sequence")
+
+
+        # Move to the above drop position
+        print("Moving to above drop position")
+        arm.safe_move_to_position(q_above_drop)
+
+        # Move to the place location
+        print("Moving to the place location")
+        # Note: This is ideal, can be done via detections too
+        q_place = move_to_place(org_block_count - block_count)
+
+        arm.safe_move_to_position(q_place)
+
+        # Drop the block
+        print("Dropping the block")
+        drop_block(drop_ee_dist, drop_ee_force)
+        
+        #######################################################################################################
+        # Reset sequence 
+        arm.safe_move_to_position(q_above_drop)
+        arm.safe_move_to_position(q_above_rotate)
+
+        block_count, block_world = get_block_world(q_above_rotate, block_count)
+  ##################################################  dynamic end  ########################################################### 
+    
+  ############################################  static  ##########################################################
     # Move to the above pickup position
     print("Moving to above pickup position")
     arm.safe_move_to_position(q_above_pickup)
@@ -240,6 +394,7 @@ if __name__ == "__main__":
     block_count, block_world = get_block_world(q_above_pickup)
 
     org_block_count = block_count
+    
 
     while block_count > 0:
         
@@ -291,7 +446,7 @@ if __name__ == "__main__":
         arm.safe_move_to_position(q_above_pickup)
 
         block_count, block_world = get_block_world(q_above_pickup, block_count)
-
+    ################################################  static end ###########################################################
     # get the transform from camera to panda_end_effector
     # H_ee_camera = detector.get_H_ee_camera()
 
