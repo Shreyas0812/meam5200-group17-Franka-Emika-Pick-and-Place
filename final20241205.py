@@ -145,7 +145,7 @@ def set_static_view(q_current):
     if team == 'red':
         pos_above_pickup = np.array(([1, 0, 0, 0.52 ],
                                         [0,-1, 0, -0.2 ], 
-                                        [0, 0,-1, 0.43 ],
+                                        [0, 0,-1, 0.52 ], 
                                         [0, 0, 0, 1    ]))
 
         pos_above_drop = np.array(([1, 0, 0, 0.52 ],
@@ -156,7 +156,7 @@ def set_static_view(q_current):
     else:
         pos_above_pickup = np.array(([1, 0, 0, 0.52 ],
                                         [0,-1, 0, 0.2  ], 
-                                        [0, 0,-1, 0.43 ],
+                                        [0, 0,-1, 0.52 ],
                                         [0, 0, 0, 1    ]))
         
         pos_above_drop = np.array(([1, 0, 0, 0.52 ],
@@ -175,12 +175,12 @@ def move_to_place(T):
         if team == 'red':
             place_location = np.array(([1,0,0, 0.562],
                         [0,-1,0, 0.2], 
-                        [0,0,-1,0.25 + T*0.055],
+                        [0,0,-1,0.23 + T*0.053],
                         [0,0,0,1]))
         else:
             place_location = np.array(([1,0,0, 0.562],
                         [0,-1,0, -0.2], 
-                        [0,0,-1,0.25 + T*0.055],
+                        [0,0,-1,0.23 + T*0.053],
                         [0,0,0,1]))
 
         q_place = calculate_q_via_ik(place_location, q_above_drop)
