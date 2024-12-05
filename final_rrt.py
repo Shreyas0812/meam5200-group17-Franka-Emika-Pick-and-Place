@@ -46,7 +46,7 @@ class Pick_and_Place:
 
     def get_block_world(self, q_current):
 
-        block_world = {}
+        block_world = []
 
         H_ee_camera = detector.get_H_ee_camera()
 
@@ -58,48 +58,18 @@ class Pick_and_Place:
 
             cur_block = T0e @ ee_block
 
-            # see if name key exists in block_world
-            if name in block_world:
-                block_world[name].append(cur_block)
-            else:
-                block_world[name] = [cur_block]
+            if cur_block[1, 3] < -0.07 and self.team == 'red':
+                block_world.append(cur_block)
+                # Sort the blocks based on the y position in reverse order
+                block_world = sorted(block_world, key=lambda x: x[1,3], reverse=True)
 
-        #loop through block_world
+            if cur_block[1, 3] > 0.07 and self.team == 'blue':
+                block_world.append(cur_block)
+                # Sort the blocks based on the y position
+                block_world = sorted(block_world, key=lambda x: x[1,3])
 
-        final_block_world = []
-        for key in block_world:
-            block_worlds = block_world[key]        
-            # Average the block world rotation
-            block_worlds_R = [mat[:3,:3] for mat in block_worlds]
-            # log_R = [np.logm(R) for R in block_worlds_R]
-            # avg_log_R = np.mean(log_R, axis=0)
-            # avg_R = np.expm(avg_log_R)
-            avg_R = np.mean(block_worlds_R, axis=0)
 
-            U, S, Vt = np.linalg.svd(avg_R)
-
-            avg_R = U @ Vt
-            
-            # Average the block world position
-            block_worlds_T = [mat[:3,3] for mat in block_worlds]
-            avg_T = np.mean(block_worlds_T, axis=0)
-            
-            avg_block_world = np.eye(4)
-            avg_block_world[:3,:3] = avg_R
-            avg_block_world[:3,3] = avg_T
-
-            final_block_world.append(avg_block_world)
-
-        block_count = len(final_block_world)
-
-        if self.team == 'red':
-            # Sort the blocks based on the y position in reverse order
-            final_block_world = sorted(final_block_world, key=lambda x: x[1,3], reverse=True)
-
-        elif self.team == 'blue':
-            final_block_world = sorted(final_block_world, key=lambda x: x[1,3])
-            
-        return block_count, final_block_world
+        return len(block_world), block_world
 
     def drop_block(self):
         self.arm.exec_gripper_cmd(0.09, 10)
@@ -152,7 +122,6 @@ class Pick_and_Place:
 
         return q_place
 
-
     def move_to_static_block(self, block, q_current):
 
         ee_rot = np.array(([1,0,0],
@@ -179,55 +148,60 @@ class Pick_and_Place:
         return q_align, q_block
 
     def pick_place_static(self):
-        # Move to the above pickup position
-        print("Moving to above pickup position")
+    # Move to the above pickup position
         self.arm.safe_move_to_position(self.q_above_pickup)
 
-        # Get the block world position
-        print("Getting the block world position")
+    # Get the block world position
         block_count, block_world = self.get_block_world(self.q_above_pickup)
-
-        # Open the gripper
-        print("Opening the gripper")
+    
+    # Open the gripper
         self.drop_block()
 
-        iter = 0
-        while block_count != 0:
-            # Calculate the align and goal position for each block along with the place position
-            if iter == 0:
-                q_align, q_block = self.move_to_static_block(block_world[iter], self.q_above_pickup)
+        q_paths = []
+
+    # Calculate the align and goal positions for each block along with the place position
+        for i, block in enumerate(block_world):
+            if i == 0:
+                 q_align, q_block = self.move_to_static_block(block, self.q_above_pickup)
             else:
-                q_align, q_block = self.move_to_static_block(block_world[iter], self.q_above_drop)
-            
-            q_place = self.move_to_place(iter)
-            
+                q_align, q_block = self.move_to_static_block(block, self.q_above_drop)
 
+            q_place = self.move_to_place(i)
 
-            # Pickup Sequence
-            # Move to the align position
+            q_paths.append([q_align, q_block, q_place])  # Append path for each block
+
+    # Execute pickup and place sequence for all blocks
+        for q_align, q_block, q_place in q_paths:
+        # Pickup Sequence
+        # Move to the align position
             self.arm.safe_move_to_position(q_align)
 
-            # Move to the block
+        # Move to the block
             self.arm.safe_move_to_position(q_block)
 
-            # Close the gripper
+        # Close the gripper to grab the block
             self.grab_block()
 
-            # Move above the drop position
+        # Move above the drop position
             self.arm.safe_move_to_position(self.q_above_drop)
 
-            # Place Sequence
-            # Move to place position
+        # Place Sequence
+        # Plan a collision-free path from q_above_drop to q_place using RRT
+            rrt_path = rrt(self.q_above_drop, q_place)
+
+        # Execute the planned RRT path
+            for waypoint in rrt_path:
+                self.arm.safe_move_to_position(waypoint)
+
+        # Gradually move to the exact q_place position
             self.arm.safe_move_to_position(q_place)
 
-            # Open the gripper
+        # Open the gripper to drop the block at the precise location
             self.drop_block()
 
-            # Move to the central position
+        # Move back to the central position above the drop location
             self.arm.safe_move_to_position(self.q_above_drop)
 
-            iter += 1
-            block_count -= 1
 
     # Staic Block Pick and Place
     def set_static_view(self, q_current):
@@ -308,10 +282,8 @@ if __name__ == "__main__":
     # Create the Pick_and_Place object
     pick_and_place = Pick_and_Place(team, arm, detector)
 
-    print("Calculating Static Pick and Place")
     pick_and_place.set_static_view(start_position)
 
-    print("Executing Static Pick and Place")
     pick_and_place.pick_place_static()
 
     finish_time = time_in_seconds()
