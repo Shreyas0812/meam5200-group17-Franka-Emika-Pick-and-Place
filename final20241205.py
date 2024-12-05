@@ -222,6 +222,9 @@ if __name__ == "__main__":
     q_above_drop = None
     q_above_rotate = None
 
+    red_black_box_height = 0.2
+    scaling_factor = 20
+
     drop_ee_dist = 0.09
     drop_ee_force = 10
     
@@ -241,16 +244,17 @@ if __name__ == "__main__":
 
     org_block_count = block_count
 
+    # Open the gripper
+    print("Opening the gripper")
+    drop_block(drop_ee_dist, drop_ee_force)
+
+    iteration = 0
     while block_count > 0:
         
         ####################################################################################################
 
         # Pick Sequence
         print("Starting the pick sequence")
-
-        # Open the gripper
-        print("Opening the gripper")
-        drop_block(drop_ee_dist, drop_ee_force)
 
         # Move to the block
         print("Moving to the block")
@@ -273,6 +277,23 @@ if __name__ == "__main__":
         print("Moving to above drop position")
         arm.safe_move_to_position(q_above_drop)
 
+        # Detect where to place from the block world
+        print("Detecting where to place")
+        target_block_count, target_block_world = get_block_world(q_above_drop)
+
+        print(target_block_count, target_block_world)
+
+        if target_block_count == 0:
+            q_place = move_to_place(0, q_above_drop)
+        else:
+            z_value =  int((max([block[2,3] - red_black_box_height for block in target_block_world]) * scaling_factor) + 1)            
+            q_place = move_to_place(z_value, q_above_drop)
+
+        # # Detect where to place from the iteration
+        # q_place = move_to_place(iteration, q_above_drop)
+
+        #EDIT THE BLOCK WORLD TO RETURN DICTIONARIES, WILL BE LOT MROE USEFUL
+
         # Move to the place location
         print("Moving to the place location")
         # Note: This is ideal, can be done via detections too
@@ -290,7 +311,9 @@ if __name__ == "__main__":
         arm.safe_move_to_position(q_above_drop)
         arm.safe_move_to_position(q_above_pickup)
 
-        block_count, block_world = get_block_world(q_above_pickup, block_count)
+        block_count, block_world = get_block_world(q_above_pickup)
+
+        iteration += 1
 
     # get the transform from camera to panda_end_effector
     # H_ee_camera = detector.get_H_ee_camera()
