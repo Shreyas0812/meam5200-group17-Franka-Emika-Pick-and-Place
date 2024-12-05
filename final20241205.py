@@ -150,7 +150,7 @@ def set_static_view(q_current):
 
         pos_above_drop = np.array(([1, 0, 0, 0.52 ],
                                     [0,-1, 0, 0.2  ], 
-                                    [0, 0,-1, 0.6  ],
+                                    [0, 0,-1, 0.45  ],
                                     [0, 0, 0, 1    ]))
     
     else:
@@ -161,7 +161,7 @@ def set_static_view(q_current):
         
         pos_above_drop = np.array(([1, 0, 0, 0.52 ],
                                     [0,-1, 0,-0.2  ], 
-                                    [0, 0,-1, 0.6  ],
+                                    [0, 0,-1, 0.45  ],
                                     [0, 0, 0, 1    ]))
 
     q_above_pickup = calculate_q_via_ik(pos_above_pickup, q_current)
@@ -171,7 +171,7 @@ def set_static_view(q_current):
     return q_above_pickup, q_above_drop
 
 
-def move_to_place(T):
+def move_to_place(T, q_current):
         if team == 'red':
             place_location = np.array(([1,0,0, 0.562],
                         [0,-1,0, 0.2], 
@@ -183,7 +183,7 @@ def move_to_place(T):
                         [0,0,-1,0.23 + T*0.053],
                         [0,0,0,1]))
 
-        q_place = calculate_q_via_ik(place_location, q_above_drop)
+        q_place = calculate_q_via_ik(place_location, q_current)
 
         return q_place
 
@@ -276,7 +276,7 @@ if __name__ == "__main__":
         # Move to the place location
         print("Moving to the place location")
         # Note: This is ideal, can be done via detections too
-        q_place = move_to_place(org_block_count - block_count)
+        q_place = move_to_place(org_block_count - block_count, q_above_drop)
 
         arm.safe_move_to_position(q_place)
 
