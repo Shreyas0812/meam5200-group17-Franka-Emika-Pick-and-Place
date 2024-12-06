@@ -221,7 +221,38 @@ def set_dynamic_block_view(q_current):
 
     return q_above_rotate, q_above_drop_stacked
 
+def dynamic_adjustment(x,y, theta, v):
 
+    x = x + v*np.cos(theta)
+    y = y + v*np.sin(theta)
+    return x,y
+
+def move_to_dynamic_block(block, q_current):
+
+    ee_rot = np.array(([1,0,0],
+        			[0,-1,0], 
+        			[0,0,-1]))
+    block_pos = block[:3,3]
+    block_pos = block_pos.reshape(3,1)
+    ee_goal = np.hstack((ee_rot,block_pos))
+
+    print("ee_goal_before adjustment: ", ee_goal)
+    x = ee_goal[0, 3]
+    y = ee_goal[1, 3]
+    xn,yn =  dynamic_adjustment(x,y, 0.1, 0.1)
+    
+    ee_goal[0, 3] = xn
+    ee_goal[1, 3] = yn
+    print("ee_goal_ adjustment: ", ee_goal)
+    
+                                     
+    angle = rotation_matrix_to_angle_axis(block[:3,:3])       
+
+    q_block = calculate_q_via_ik(ee_goal, q_current)
+    if q_block is not None:
+        q_block[-1] = q_block[-1] - angle 
+
+    return q_block
 
 if __name__ == "__main__":
     try:
@@ -333,17 +364,14 @@ if __name__ == "__main__":
             q_place = move_to_place(0, q_above_drop)
         else:
             z_value =  int((max([block[2,3] - red_black_box_height for block in target_block_world]) * scaling_factor) + 1)            
+            print("z_value: ", z_value)
             q_place = move_to_place(z_value, q_above_drop)
 
         # # Detect where to place from the iteration
         # q_place = move_to_place(iteration, q_above_drop)
 
-
         # Move to the place location
         print("Moving to the place location")
-        # Note: This is ideal, can be done via detections too
-        q_place = move_to_place(org_block_count - block_count, q_above_drop)
-
         arm.safe_move_to_position(q_place)
 
         # Drop the block
@@ -370,6 +398,65 @@ if __name__ == "__main__":
     print("Moving to above rotate position")
     arm.safe_move_to_position(q_above_rotate)
 
+    # Get the block world position
+    print("Getting the block world position")
+    block_count, block_world = get_block_world(q_above_rotate)
+
+    
+    while True:
+
+        # If no blocks are detected for 20 seconds, break
+        if block_count == 0 and time_in_seconds() - block_detected_at > 20:
+            break
+        
+        ####################################################################################################
+
+        # Pick Sequence
+        print("Block Detected: ", block_count)
+        block_detected_at = time_in_seconds()
+
+        print("Moving to the block")
+        q_block = move_to_dynamic_block(block_world[0], q_above_rotate)
+        arm.safe_move_to_position(q_block)
+
+        print("Closing the gripper")
+        grab_block(grab_ee_dist, grab_ee_force)
+
+        ####################################################################################################
+
+        # Place Sequence
+
+        # Move to the above drop stacked position
+        print("Moving to the above drop stacked position")
+        arm.safe_move_to_position(q_above_drop_stacked)
+
+        # Detect where to place from the block world
+        print("Detecting where to place")
+        target_block_count, target_block_world = get_block_world(q_above_drop_stacked)
+
+        if target_block_count == 0:
+            q_place = move_to_place(0, q_above_drop)
+        else:
+            z_value =  int((max([block[2,3] - red_black_box_height for block in target_block_world]) * scaling_factor) + 1)            
+            print("z_value: ", z_value)
+            q_place = move_to_place(z_value, q_above_drop)
+
+        # Move to the place location
+        print("Moving to the place location")
+        arm.safe_move_to_position(q_place)
+
+        # Drop the block
+        print("Dropping the block")
+        drop_block(drop_ee_dist, drop_ee_force)
+
+        ####################################################################################################
+
+        # Reset sequence
+        print("Resetting the sequence")
+        arm.safe_move_to_position(q_above_drop_stacked)
+        arm.safe_move_to_position(q_above_rotate)
+
+        block_count, block_world = get_block_world(q_above_rotate)
 
     # Move to the above drop stacked position
     arm.safe_move_to_position(q_above_drop_stacked)
