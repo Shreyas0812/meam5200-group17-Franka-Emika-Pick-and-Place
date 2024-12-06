@@ -309,101 +309,14 @@ if __name__ == "__main__":
     grab_ee_dist = 0.048
     grab_ee_force = 52
 
-    ####################################################################################################
 
     # Static Pick and Place
     q_above_pickup, q_above_drop = set_static_view(start_position)
 
-    # Move to the above pickup position
-    print("Moving to above pickup position")
-    arm.safe_move_to_position(q_above_pickup)
-
-    # Get the block world position
-    print("Getting the block world position")
-    block_count, block_world = get_block_world(q_above_pickup)
-
-    #EDIT THE BLOCK WORLD TO RETURN DICTIONARIES, WILL BE LOT MROE USEFUL WITH NOISE
-    ########################################################################
-
-    org_block_count = block_count
-
-    # Open the gripper
-    print("Opening the gripper")
-    drop_block(drop_ee_dist, drop_ee_force)
-
-    iteration = 0
-    
-    #FOR DYNAMIC
-    block_count = 0
-    
-    while block_count > 0:
-        
-        ####################################################################################################
-
-        # Pick Sequence
-        print("Starting the pick sequence")
-
-        # Move to the block
-        print("Moving to the block")
-        q_align, q_block = move_to_static_block(block_world[0], q_above_pickup)
-
-        arm.safe_move_to_position(q_align)
-        arm.safe_move_to_position(q_block)
-
-        # Close the gripper
-        print("Closing the gripper")
-        grab_block(grab_ee_dist, grab_ee_force)
-
-        #################################################################################################### 
-
-        # Place Sequence
-        print("Starting the place sequence")
-
-
-        # Move to the above drop position
-        print("Moving to above drop position")
-        arm.safe_move_to_position(q_above_drop)
-
-        # Detect where to place from the block world
-        print("Detecting where to place")
-        target_block_count, target_block_world = get_block_world(q_above_drop)
-
-
-        print(target_block_count, target_block_world)
-
-        if target_block_count == 0:
-            q_place = move_to_place(0, q_above_drop)
-        else:
-            z_value =  int((max([block[2,3] - red_black_box_height for block in target_block_world]) * scaling_factor) + 1)            
-            print("z_value: ", z_value)
-            q_place = move_to_place(z_value, q_above_drop)
-
-        # # Detect where to place from the iteration
-        # q_place = move_to_place(iteration, q_above_drop)
-
-        # Move to the place location
-        print("Moving to the place location")
-        arm.safe_move_to_position(q_place)
-
-        # Drop the block
-        print("Dropping the block")
-        drop_block(drop_ee_dist, drop_ee_force)
-
-        ####################################################################################################
-        
-        # Reset sequence 
-        arm.safe_move_to_position(q_above_drop)
-        arm.safe_move_to_position(q_above_pickup)
-
-        block_count, block_world = get_block_world(q_above_pickup)
-
-        iteration += 1
-    
-
-    ####################################################################################################
-
     # Dynamic Pick and Place
     q_above_rotate, q_above_drop_stacked = set_dynamic_block_view(start_position)
+
+    ####################################################################################################
 
     # Move to the above rotate position
     print("Moving to above rotate position")
@@ -476,6 +389,95 @@ if __name__ == "__main__":
 
     # Move to the above drop stacked position
     arm.safe_move_to_position(q_above_drop_stacked)
+
+
+
+    ####################################################################################################
+
+    
+
+    # Move to the above pickup position
+    print("Moving to above pickup position")
+    arm.safe_move_to_position(q_above_pickup)
+
+    # Get the block world position
+    print("Getting the block world position")
+    block_count, block_world = get_block_world(q_above_pickup)
+
+    #EDIT THE BLOCK WORLD TO RETURN DICTIONARIES, WILL BE LOT MROE USEFUL WITH NOISE
+    ########################################################################
+
+    org_block_count = block_count
+
+    # Open the gripper
+    print("Opening the gripper")
+    drop_block(drop_ee_dist, drop_ee_force)
+
+    iteration = 0
+    while block_count > 0:
+        
+        ####################################################################################################
+
+        # Pick Sequence
+        print("Starting the pick sequence")
+
+        # Move to the block
+        print("Moving to the block")
+        q_align, q_block = move_to_static_block(block_world[0], q_above_pickup)
+
+        arm.safe_move_to_position(q_align)
+        arm.safe_move_to_position(q_block)
+
+        # Close the gripper
+        print("Closing the gripper")
+        grab_block(grab_ee_dist, grab_ee_force)
+
+        #################################################################################################### 
+
+        # Place Sequence
+        print("Starting the place sequence")
+
+
+        # Move to the above drop position
+        print("Moving to above drop position")
+        arm.safe_move_to_position(q_above_drop)
+
+        # Detect where to place from the block world
+        print("Detecting where to place")
+        target_block_count, target_block_world = get_block_world(q_above_drop)
+
+
+        print(target_block_count, target_block_world)
+
+        if target_block_count == 0:
+            q_place = move_to_place(0, q_above_drop)
+        else:
+            z_value =  int((max([block[2,3] - red_black_box_height for block in target_block_world]) * scaling_factor) + 1)            
+            print("z_value: ", z_value)
+            q_place = move_to_place(z_value, q_above_drop)
+
+        # # Detect where to place from the iteration
+        # q_place = move_to_place(iteration, q_above_drop)
+
+        # Move to the place location
+        print("Moving to the place location")
+        arm.safe_move_to_position(q_place)
+
+        # Drop the block
+        print("Dropping the block")
+        drop_block(drop_ee_dist, drop_ee_force)
+
+        ####################################################################################################
+        
+        # Reset sequence 
+        arm.safe_move_to_position(q_above_drop)
+        arm.safe_move_to_position(q_above_pickup)
+
+        block_count, block_world = get_block_world(q_above_pickup)
+
+        iteration += 1
+    
+
 
 
 
