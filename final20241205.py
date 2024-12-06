@@ -30,7 +30,7 @@ def calculate_q_via_ik(pos, q_start):
         print('Failed to find IK Solution: ')
         print('pos: ', pos)
         print('q_start: ', q_start)
-        return None
+        return q_start
 
 def get_block_world(q_current, num_detects=1):
 
@@ -197,7 +197,7 @@ def set_dynamic_block_view(q_current):
         
         pos_above_drop_stacked = np.array(([1, 0, 0, 0.52 ],
                                     [0,-1, 0, 0.2  ], 
-                                    [0, 0,-1, 1  ],
+                                    [0, 0,-1, 0.65  ],
                                     [0, 0, 0, 1    ]))
     
     else:
@@ -208,16 +208,20 @@ def set_dynamic_block_view(q_current):
         
         pos_above_drop_stacked = np.array(([1, 0, 0, 0.52 ],
                                     [0,-1, 0,-0.2  ], 
-                                    [0, 0,-1, 1  ],
+                                    [0, 0,-1, 0.65  ],
                                     [0, 0, 0, 1    ]))
     
     q_above_rotate = calculate_q_via_ik(q_above_rotate, q_current)
-    # q_above_rotate[-1] = q_above_rotate[-1] - (pi) 
-    # q_above_rotate[4] = q_above_rotate[4] 
+    if q_above_rotate[-1] - pi < 2.897 and q_above_rotate[-1] - pi > -2.897:
+        q_above_rotate[-1] = q_above_rotate[-1] - pi
+    else:
+        q_above_rotate[-1] = q_above_rotate[-1] + pi
 
     q_above_drop_stacked = calculate_q_via_ik(pos_above_drop_stacked, q_current)
 
     return q_above_rotate, q_above_drop_stacked
+
+
 
 if __name__ == "__main__":
     try:
@@ -276,6 +280,9 @@ if __name__ == "__main__":
     print("Getting the block world position")
     block_count, block_world = get_block_world(q_above_pickup)
 
+    #EDIT THE BLOCK WORLD TO RETURN DICTIONARIES, WILL BE LOT MROE USEFUL WITH NOISE
+    ########################################################################
+
     org_block_count = block_count
 
     # Open the gripper
@@ -283,6 +290,10 @@ if __name__ == "__main__":
     drop_block(drop_ee_dist, drop_ee_force)
 
     iteration = 0
+    
+    #FOR DYNAMIC
+    block_count = 0
+    
     while block_count > 0:
         
         ####################################################################################################
@@ -315,6 +326,7 @@ if __name__ == "__main__":
         print("Detecting where to place")
         target_block_count, target_block_world = get_block_world(q_above_drop)
 
+
         print(target_block_count, target_block_world)
 
         if target_block_count == 0:
@@ -326,8 +338,6 @@ if __name__ == "__main__":
         # # Detect where to place from the iteration
         # q_place = move_to_place(iteration, q_above_drop)
 
-        #EDIT THE BLOCK WORLD TO RETURN DICTIONARIES, WILL BE LOT MROE USEFUL WITH NOISE
-        ########################################################################
 
         # Move to the place location
         print("Moving to the place location")
@@ -359,6 +369,10 @@ if __name__ == "__main__":
     # Move to the above rotate position
     print("Moving to above rotate position")
     arm.safe_move_to_position(q_above_rotate)
+
+
+    # Move to the above drop stacked position
+    arm.safe_move_to_position(q_above_drop_stacked)
 
 
 
