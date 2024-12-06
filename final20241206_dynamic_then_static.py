@@ -315,6 +315,10 @@ if __name__ == "__main__":
 
     # Dynamic Pick and Place
     q_above_rotate, q_above_drop_stacked = set_dynamic_block_view(start_position)
+    
+    q_temp = q_above_drop
+    q_above_drop = q_above_drop_stacked
+    q_above_drop_stacked = q_temp
 
     ####################################################################################################
 
@@ -394,7 +398,7 @@ if __name__ == "__main__":
 
     ####################################################################################################
 
-    
+
 
     # Move to the above pickup position
     print("Moving to above pickup position")
