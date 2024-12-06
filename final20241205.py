@@ -187,6 +187,38 @@ def move_to_place(T, q_current):
 
         return q_place
 
+def set_dynamic_block_view(q_current):
+
+    if team == 'red':
+        q_above_rotate = np.array(([1, 0, 0, 0   ],
+                                    [0,-1, 0, 0.7 ],
+                                    [0, 0,-1, 0.4 ],
+                                    [0, 0, 0, 1   ]))
+        
+        pos_above_drop_stacked = np.array(([1, 0, 0, 0.52 ],
+                                    [0,-1, 0, 0.2  ], 
+                                    [0, 0,-1, 1  ],
+                                    [0, 0, 0, 1    ]))
+    
+    else:
+        q_above_rotate = np.array(([1, 0, 0, 0   ],
+                                    [0,-1, 0, -0.7],
+                                    [0, 0,-1, 0.4 ],
+                                    [0, 0, 0, 1   ]))
+        
+        pos_above_drop_stacked = np.array(([1, 0, 0, 0.52 ],
+                                    [0,-1, 0,-0.2  ], 
+                                    [0, 0,-1, 1  ],
+                                    [0, 0, 0, 1    ]))
+    
+    q_above_rotate = calculate_q_via_ik(q_above_rotate, q_current)
+    # q_above_rotate[-1] = q_above_rotate[-1] - (pi) 
+    # q_above_rotate[4] = q_above_rotate[4] 
+
+    q_above_drop_stacked = calculate_q_via_ik(pos_above_drop_stacked, q_current)
+
+    return q_above_rotate, q_above_drop_stacked
+
 if __name__ == "__main__":
     try:
         team = rospy.get_param("team") # 'red' or 'blue'
@@ -230,6 +262,8 @@ if __name__ == "__main__":
     
     grab_ee_dist = 0.048
     grab_ee_force = 52
+
+    ####################################################################################################
 
     # Static Pick and Place
     q_above_pickup, q_above_drop = set_static_view(start_position)
@@ -292,7 +326,8 @@ if __name__ == "__main__":
         # # Detect where to place from the iteration
         # q_place = move_to_place(iteration, q_above_drop)
 
-        #EDIT THE BLOCK WORLD TO RETURN DICTIONARIES, WILL BE LOT MROE USEFUL
+        #EDIT THE BLOCK WORLD TO RETURN DICTIONARIES, WILL BE LOT MROE USEFUL WITH NOISE
+        ########################################################################
 
         # Move to the place location
         print("Moving to the place location")
@@ -314,6 +349,19 @@ if __name__ == "__main__":
         block_count, block_world = get_block_world(q_above_pickup)
 
         iteration += 1
+    
+
+    ####################################################################################################
+
+    # Dynamic Pick and Place
+    q_above_rotate, q_above_drop_stacked = set_dynamic_block_view(start_position)
+
+    # Move to the above rotate position
+    print("Moving to above rotate position")
+    arm.safe_move_to_position(q_above_rotate)
+
+
+
 
     # get the transform from camera to panda_end_effector
     # H_ee_camera = detector.get_H_ee_camera()
