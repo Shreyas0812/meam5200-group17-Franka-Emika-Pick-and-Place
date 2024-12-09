@@ -1,3 +1,9 @@
+# CODE -- TEST 1 
+# 1. Pick and place 2 blocks in the static environment
+# 2. Pick and place 2 blocks in the dynamic environment
+# 3. Pick and place 2 blocks in the static environment
+# 4. Pick and place 100 blocks in the dynamic environment
+
 import sys
 import numpy as np
 from copy import deepcopy
@@ -28,9 +34,7 @@ def calculate_q_via_ik(pos, q_start, verify=True):
         if success:
             return q_end
         else:
-            print('Failed to find IK Solution: ')
-            print('pos: ', pos)
-            print('q_start: ', q_start)
+            print('Failed to find IK Solution for position: ', pos)
             return q_start
     
     return q_end
@@ -59,14 +63,13 @@ def get_block_world(q):
             
         for (name_1, pose_1) in block_det:
             b_reading_1.append(pose_1)
-            print(name_1,'\n',pose_1)
+
         b_reading_1 = np.array(b_reading_1)
 
         for (name_2, pose_2) in block_det:
             b_reading_2.append(pose_2)
-            print(name_2,'\n',pose_2)
+
         b_reading_2 = np.array(b_reading_2)
-        # print(block_pose2.shape)
 
         b_reading_comp = comp_filter(b_reading_2, b_reading_2, alpha)
         b_reading_1 = b_reading_2
@@ -93,16 +96,7 @@ def get_block_world(q):
 
 
 def swap_columns(matrix, col1, col2):
-        """
-        
-        """
-        #matrix[:, col1], matrix[:, col2] = matrix[:, col2], matrix[:, col1]
         matrix[:, [col1, col2]] = matrix[:, [col2, col1]]
-        
-        # Debug print to show matrix after swap
-        #print("Matrix after swap:")
-        #print(matrix)
-        
         return matrix
 
 
@@ -114,45 +108,35 @@ def rotation_matrix_to_angle_axis(rotation_matrix):
         rotation = rotation_matrix[:3, :3]
         abs_rotation = np.abs(rotation)
     
-    # Find the column closest to [0, 0, 1]
+        # Find the column closest to [0, 0, 1]
         target_column = np.array([0, 0, 1])
         min_diff = 0.2  
         col_to_swap = -1
     
-     # Loop through each column to find the one closest to [0, 0, 1]
+        # Loop through each column to find the one closest to [0, 0, 1]
         for i in range(3):
-        # Calculate the absolute Euclidean distance to [0, 0, 1]
+            # Calculate the absolute Euclidean distance to [0, 0, 1]
             diff = np.linalg.norm(np.abs(abs_rotation[:, i] - target_column))  # Absolute distance to [0, 0, 1]
         
-        # If this column is the closest, update the swap index
+            # If this column is the closest, update the swap index
             if diff < min_diff:
                 min_diff = diff
                 col_to_swap = i
-                print("Col to swap")
-                print(i)
-                
-          # Debug: Which column to swap
-            #print(f"Column {col_to_swap} is closest to [0, 0, 1] and will be swapped with column 2.")
     
-    
-    # Swap the column that is closest to [0, 0, 1] with the 3rd column
+        # Swap the column that is closest to [0, 0, 1] with the 3rd column
+        # Adjusting Rotation
         rotation = swap_columns(rotation, col_to_swap, 2)
-        print("Adjusted rotation = ")
-        print(rotation)
     
-    # Calculate the rotation angle about the z-axis using atan2
+        # Calculate the rotation angle about the z-axis using atan2
         rz = np.arctan2(rotation[1, 0], rotation[0, 0])
         
     
-    # Optionally adjust the angle to stay within [-pi, pi]
+        # Optionally adjust the angle to stay within [-pi, pi]
         if rz > np.pi / 4:
             rz = rz - np.pi / 2
-            #print(rz)
         elif rz < -np.pi / 4:
             rz = rz + np.pi / 2
-            #print(rz)
-        print("Calculated rz - ")
-        print(rz)
+        
         
         return rz
 
@@ -315,7 +299,6 @@ def move_to_dynamic_block(block, q_current):
     block_pos = block_pos.reshape(4,1)
     ee_goal = np.hstack((ee_rot,block_pos))
 
-    # print("ee_goal_before adjustment: ", ee_goal)
     x = ee_goal[0, 3]
     y = ee_goal[1, 3]
 
@@ -337,10 +320,8 @@ def move_to_dynamic_block(block, q_current):
 
     ee_goal[0, 3] = xn
     ee_goal[1, 3] = yn
-    # print("ee_goal_ adjustment: ", ee_goal)
-    
+
     ee_goal[2,3] = 0.22                             
-    # angle = rotation_matrix_to_angle_axis(block[:3,:3])       
     angle = pi
 
     q_block = calculate_q_via_ik(ee_goal, q_current)
@@ -353,18 +334,15 @@ def move_to_dynamic_block(block, q_current):
 def pick_place_static(q_above_pickup, q_above_drop, stack_block_num = 1):
 
     # Move to the above pickup position
-    print("Moving to above pickup position")
     arm.safe_move_to_position(q_above_pickup)
 
     # Get the block world position
-    print("Getting the block world position")
     block_count, block_world = get_block_world(q_above_pickup)
 
     #EDIT THE BLOCK WORLD TO RETURN DICTIONARIES, WILL BE LOT MROE USEFUL WITH NOISE
     ########################################################################
 
     # Open the gripper
-    print("Opening the gripper")
     drop_block(drop_ee_dist, drop_ee_force)
 
     iteration = 0
@@ -376,10 +354,9 @@ def pick_place_static(q_above_pickup, q_above_drop, stack_block_num = 1):
         ####################################################################################################
 
         # Pick Sequence
-        print("Starting the pick sequence")
+        print("STATIC PICK SEQUENCE")
 
         # Move to the block
-        print("Moving to the block")
         q_align, q_block = move_to_static_block(block_world[0], q_above_pickup)
         
         if (q_align == q_above_pickup).all() or (q_block == q_above_pickup).all():
@@ -399,48 +376,42 @@ def pick_place_static(q_above_pickup, q_above_drop, stack_block_num = 1):
         arm.safe_move_to_position(q_block)
 
         # Close the gripper
-        print("Closing the gripper")
         grab_block(grab_ee_dist, grab_ee_force)
 
         #################################################################################################### 
 
         # Place Sequence
-        print("Starting the place sequence")
+        print("STATIC PLACE SEQUENCE")
 
 
         # Move to the above drop position
-        print("Moving to above drop position")
         arm.safe_move_to_position(q_above_drop)
 
         # Detect where to place from the block world
-        print("Detecting where to place")
         target_block_count, target_block_world = get_block_world(q_above_drop)
-
-
-        print(target_block_count, target_block_world)
 
         if target_block_count == 0:
             z_value = 0
             q_place = move_to_place(0, q_above_drop)
         else:
             z_value =  round(max([block[2,3] - red_black_box_height for block in target_block_world]) * scaling_factor)         
-            print("z_value: ", z_value)
             q_place = move_to_place(z_value, q_above_drop)
+            
+            print("z_value: ", z_value)
 
         # # Detect where to place from the iteration
         # q_place = move_to_place(iteration, q_above_drop)
 
         # Move to the place location
-        print("Moving to the place location")
         arm.safe_move_to_position(q_place)
 
         # Drop the block
-        print("Dropping the block")
         drop_block(drop_ee_dist, drop_ee_force)
 
         ####################################################################################################
         
         # Reset sequence 
+        print("Resetting the sequence")
         arm.safe_move_to_position(q_above_drop)
 
         # Break if required number of blocks are stacked
@@ -456,7 +427,6 @@ def pick_place_static(q_above_pickup, q_above_drop, stack_block_num = 1):
 
 def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, iterations = 1):
     
-    print("Getting the block world position")
     arm.safe_move_to_position(q_above_rotate)
 
     block_count, block_world = get_block_world(q_above_rotate)
@@ -470,7 +440,6 @@ def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, iterations = 1):
             break
 
         # If no blocks are detected for 20 seconds, break
-        print("Time passed: ", time_in_seconds() - block_detected_at)
         if block_count == 0 and time_in_seconds() - block_detected_at > 20:
             break
         elif block_count == 0:
@@ -480,12 +449,11 @@ def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, iterations = 1):
         ####################################################################################################
         
         itera +=1
+        
+        print("DYNAMIC PICK SEQUENCE")
 
-        # Pick Sequence
-        print("Block Detected: ", block_count)
         block_detected_at = time_in_seconds()
 
-        print("Moving to the block")
         q_block, theta, angle = move_to_dynamic_block(block_world[0], q_above_rotate)
         if np.all(q_block == None):
             continue
@@ -494,34 +462,30 @@ def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, iterations = 1):
         # q_block[-1] = q_block[-1] + theta + angle
         # arm.safe_move_to_position(q_block)
         
-        print("Closing the gripper")
         grab_block(grab_ee_dist, grab_ee_force)
 
         ####################################################################################################
 
         # Place Sequence
+        print("DYNAMIC PLACE SEQUENCE")
 
         # Move to the above drop stacked position
-        print("Moving to the above drop stacked position")
         arm.safe_move_to_position(q_above_drop_stacked)
 
         # Detect where to place from the block world
-        print("Detecting where to place")
         target_block_count, target_block_world = get_block_world(q_above_drop_stacked)
 
         if target_block_count == 0:
             q_place = move_to_place(0, q_above_drop_stacked)
         else:
             z_value =  int((max([block[2,3] - red_black_box_height for block in target_block_world]) * scaling_factor) + 1)            
-            print("z_value: ", z_value)
             q_place = move_to_place(z_value, q_above_drop_stacked)
+            print("z_value: ", z_value)
 
         # Move to the place location
-        print("Moving to the place location")
         arm.safe_move_to_position(q_place)
 
         # Drop the block
-        print("Dropping the block")
         # drop_block(drop_ee_dist, drop_ee_force)
         arm.open_gripper()
 
