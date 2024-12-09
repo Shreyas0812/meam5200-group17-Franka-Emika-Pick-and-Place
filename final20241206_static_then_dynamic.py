@@ -236,7 +236,7 @@ def dynamic_adjustment(x,y, w_t):
     # Convert back to Cartesian
     return r * np.cos(theta), r * np.sin(theta)
 
-def move_to_dynamic_block(block, q_current):
+def move_to_dynamic_block(block, q_current, w_t = 0.22):
 
     ee_rot = np.array(([1,0,0],
         			[0,-1,0], 
@@ -319,7 +319,7 @@ if __name__ == "__main__":
     grab_ee_dist = 0.048
     grab_ee_force = 52
 
-    ####################################################################################################
+    ##################################################-STATIC-##################################################
 
     # Static Pick and Place
     q_above_pickup, q_above_drop = set_static_view(start_position)
@@ -342,9 +342,9 @@ if __name__ == "__main__":
     drop_block(drop_ee_dist, drop_ee_force)
 
     iteration = 0
-    
+    static_start_time = time_in_seconds()
     while block_count > 0:
-        
+
         ####################################################################################################
 
         # Pick Sequence
@@ -399,15 +399,21 @@ if __name__ == "__main__":
         ####################################################################################################
         
         # Reset sequence 
+        print("Resetting the sequence")
         arm.safe_move_to_position(q_above_drop)
+
+        if time_in_seconds() - static_start_time > 60:
+            break
+    
         arm.safe_move_to_position(q_above_pickup)
 
         block_count, block_world = get_block_world(q_above_pickup, num_detects=5)
 
         iteration += 1
     
+    ##################################################-STATIC-END-##################################################
 
-    ####################################################################################################
+    ##################################################-DYNAMIC-##################################################
 
     # Dynamic Pick and Place
     q_above_rotate, q_above_drop_stacked = set_dynamic_block_view(start_position)
@@ -416,6 +422,7 @@ if __name__ == "__main__":
     print("Moving to above rotate position")
     arm.safe_move_to_position(q_above_rotate)
 
+    print("Opening the gripper")
     arm.open_gripper()
 
     # Get the block world position
@@ -426,14 +433,11 @@ if __name__ == "__main__":
     dynamic_start_time = time_in_seconds()
     while True:
 
-        if time_in_seconds() - dynamic_start_time > 150:
-            break
-
         # If no blocks are detected for 20 seconds, break
         print("Time passed: ", time_in_seconds() - block_detected_at)
         if block_count == 0 and time_in_seconds() - block_detected_at > 20:
             break
-        
+
         ####################################################################################################
 
         # Pick Sequence
@@ -441,7 +445,7 @@ if __name__ == "__main__":
         block_detected_at = time_in_seconds()
 
         print("Moving to the block")
-        q_block = move_to_dynamic_block(block_world[0], q_above_rotate)
+        q_block = move_to_dynamic_block(block_world[0], q_above_rotate, 0.45)
         arm.safe_move_to_position(q_block)
 
         print("Closing the gripper")
@@ -480,14 +484,21 @@ if __name__ == "__main__":
         # Reset sequence
         print("Resetting the sequence")
         arm.safe_move_to_position(q_above_drop_stacked)
+
+        if time_in_seconds() - dynamic_start_time > 90:
+            break
+
         arm.safe_move_to_position(q_above_rotate)
 
         block_count, block_world = get_block_world(q_above_rotate, num_detects=5)
 
-    # Move to the above drop stacked position
-    arm.safe_move_to_position(q_above_drop_stacked)
+        if block_count > 0:
+            block_detected_at = time_in_seconds()
 
+    # Move to the start position
+    arm.safe_move_to_position(start_position)
 
+    ##################################################-DYNAMIC-END-##################################################
 
 
     # get the transform from camera to panda_end_effector
