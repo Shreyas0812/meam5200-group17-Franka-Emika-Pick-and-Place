@@ -86,6 +86,8 @@ def get_block_world(q_current, num_detects=1):
     elif team == 'blue':
         final_block_world = sorted(final_block_world, key=lambda x: x[1,3])
     
+    final_block_world = [block for block in final_block_world if block[2,3] > 0.1 and block[2,3] < 0.4]
+
     block_count = len(final_block_world)
 
     return block_count, final_block_world
@@ -228,15 +230,17 @@ def set_dynamic_block_view(q_current):
                                     [0, 0,-1, 0.65  ],
                                     [0, 0, 0, 1    ]))
     
-    q_above_rotate = calculate_q_via_ik(q_above_rotate, q_current)
-    if q_above_rotate[-1] - pi < 2.897 and q_above_rotate[-1] - pi > -2.897:
-        q_above_rotate[-1] = q_above_rotate[-1] - pi
-    else:
-        q_above_rotate[-1] = q_above_rotate[-1] + pi
+    q_above_rotate = calculate_q_via_ik(q_above_rotate, q_current, verify=True)
+    if team == "red":
+        if q_above_rotate[-1] - pi < 2.897 and q_above_rotate[-1] - pi > -2.897:
+            q_above_rotate[-1] = q_above_rotate[-1] - pi
+        else:
+            q_above_rotate[-1] = q_above_rotate[-1] + pi
 
     q_above_drop_stacked = calculate_q_via_ik(pos_above_drop_stacked, q_current)
 
     return q_above_rotate, q_above_drop_stacked
+
 
 def dynamic_adjustment(x,y, w_t, r_threshold = 0.19):
     r = np.sqrt(x**2 + y**2)
@@ -263,24 +267,32 @@ def move_to_dynamic_block(block, q_current):
 
     x = ee_goal[0, 3]
     y = ee_goal[1, 3]
-    y -= 0.990
+    if team == 'red':
+        y -= 0.990
+    else:
+        y += 0.990
 
-    xn,yn =  dynamic_adjustment(x,y, 0.22)
+    xn,yn =  dynamic_adjustment(x,y, 0.45)
 
     if xn is None:
         return None
     
-    yn += 0.990
+    if team == 'red':
+        yn += 0.990
+    else:
+        yn -= 0.990
 
     ee_goal[0, 3] = xn
     ee_goal[1, 3] = yn
-    
+    ee_goal[2, 3] = 0.22
+
     q_block = calculate_q_via_ik(ee_goal, q_current)
     if q_block is not None:
-        if q_block[-1] - pi < 2.897 and q_block[-1] - pi > -2.897:
-            q_block[-1] = q_block[-1] - pi
-        else:
-            q_block[-1] = q_block[-1] + pi
+        if team == "red":    
+            if q_block[-1] - pi < 2.897 and q_block[-1] - pi > -2.897:
+                q_block[-1] = q_block[-1] - pi
+            else:
+                q_block[-1] = q_block[-1] + pi
 
     return q_block
 
