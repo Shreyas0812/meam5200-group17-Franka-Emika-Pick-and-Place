@@ -246,10 +246,17 @@ def move_to_dynamic_block(block, q_current, w_t = 0.22):
     print("ee_goal_before adjustment: ", ee_goal)
     x = ee_goal[0, 3]
     y = ee_goal[1, 3]
-    y -= 0.990
+    if team == "red":
+        y -= 0.990
+    else:
+        y +=0.990
+     
 
-    xn,yn =  dynamic_adjustment(x,y, w_t)
-    yn += 0.990
+    xn,yn =  dynamic_adjustment(x,y, 0.22)
+    if team == "red":
+        yn += 0.990
+    else:
+        yn -=0.990
 
     ee_goal[0, 3] = xn
     ee_goal[1, 3] = yn
