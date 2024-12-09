@@ -272,7 +272,7 @@ def move_to_dynamic_block(block, q_current):
     else:
         y += 0.990
 
-    xn,yn =  dynamic_adjustment(x,y, 0.45)
+    xn,yn =  dynamic_adjustment(x,y, 0.5)
 
     if xn is None:
         return None
@@ -284,7 +284,7 @@ def move_to_dynamic_block(block, q_current):
 
     ee_goal[0, 3] = xn
     ee_goal[1, 3] = yn
-    ee_goal[2, 3] = 0.22
+    ee_goal[2, 3] = 0.15
 
     q_block = calculate_q_via_ik(ee_goal, q_current)
     if q_block is not None:
@@ -293,6 +293,8 @@ def move_to_dynamic_block(block, q_current):
                 q_block[-1] = q_block[-1] - pi
             else:
                 q_block[-1] = q_block[-1] + pi
+
+        q_block[4] = q_block[4] + pi/4
 
     return q_block
 
@@ -443,7 +445,7 @@ def pick_place_dynamic(q_above_rotate, q_drop, stack_block_num=4):
         if target_block_count == 0:
             q_place = move_to_place(0, q_above_drop)
         else:
-            z_value =  int((max([block[2,3] - red_black_box_height for block in target_block_world]) * scaling_factor) + 1)            
+            z_value =  round((max([block[2,3] - red_black_box_height for block in target_block_world]) * scaling_factor))            
             print("z_value: ", z_value)
             q_place = move_to_place(z_value, q_above_drop)
 
@@ -527,7 +529,7 @@ if __name__ == "__main__":
 
     ####################################################################################################
     static_start_time = time_in_seconds()
-    pick_place_static(q_above_pickup, q_above_drop, stack_block_num=4)
+    # pick_place_static(q_above_pickup, q_above_drop, stack_block_num=4)
     static_end_time = time_in_seconds()
 
     print("Time taken for static pick and place: ", static_end_time - static_start_time, " seconds")
