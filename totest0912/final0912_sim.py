@@ -397,14 +397,14 @@ def pick_place_dynamic(q_above_rotate, q_drop, stack_block_num=4):
 
     block_detected_at = time_in_seconds()
 
-    dynamic_start_time = time_in_seconds()
+    # dynamic_start_time = time_in_seconds()
 
     iteration = 0
 
     while iteration < stack_block_num:
         print("Iteration: ", iteration)
-        if time_in_seconds() - dynamic_start_time > 150:
-            break
+        # if time_in_seconds() - dynamic_start_time > 150:
+        #     break
 
         # If no blocks are detected for 20 seconds, break
         if block_count == 0 and time_in_seconds() - block_detected_at > 20:
