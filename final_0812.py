@@ -24,99 +24,148 @@ def grab_block(distance=0.048, force=52):
 def calculate_q_via_ik(pos, q_start):
     q_end, rollout, success, message = ik.inverse(pos, q_start, method='J_pseudo', alpha = 0.5)
     
-    if success:
-        return q_end
-    else:
-        print('Failed to find IK Solution: ')
-        print('pos: ', pos)
-        print('q_start: ', q_start)
-        return q_start
-
-def get_block_world(q_current, num_detects=1):
-
-    block_world = {}
-
-    H_ee_camera = detector.get_H_ee_camera()
-
-    for _ in range(num_detects):
-        for (name, pose) in detector.get_detections():
-
-            ee_block = H_ee_camera @ pose
-
-            _, T0e = fk.forward(q_current)
-
-            cur_block = T0e @ ee_block
-
-            # see if name key exists in block_world
-            if name in block_world:
-                block_world[name].append(cur_block)
-            else:
-                block_world[name] = [cur_block]
-
-    final_block_world = []
-    for key in block_world:
-        block_worlds = block_world[key]        
-
-        # Average the block world rotation
-        block_worlds_R = [mat[:3,:3] for mat in block_worlds]
-        avg_R = np.mean(block_worlds_R, axis=0)
-        U, S, Vt = np.linalg.svd(avg_R)
-        avg_R = U @ Vt
-        
-        # Average the block world position
-        block_worlds_T = [mat[:3,3] for mat in block_worlds]
-        avg_T = np.mean(block_worlds_T, axis=0)
-        
-        avg_block_world = np.eye(4)
-        avg_block_world[:3,:3] = avg_R
-        avg_block_world[:3,3] = avg_T
-
-        final_block_world.append(avg_block_world)
-
-    if team == 'red':
-        # Sort the blocks based on the y position in reverse order
-        final_block_world = sorted(final_block_world, key=lambda x: x[1,3], reverse=True)
-
-    elif team == 'blue':
-        final_block_world = sorted(final_block_world, key=lambda x: x[1,3])
     
-    block_count = len(final_block_world)
-    print("block world: ", final_block_world)
-    return block_count, final_block_world
+    return q_end
+    
+def comp_filter(curr_reading, prev_reading, alpha):
+    filt_pose = (alpha*curr_reading) + ((1 - alpha)*prev_reading)
+    return filt_pose
 
+def get_block_world(q):
 
-
-def rotation_matrix_to_angle_axis(R):
-
-        assert R.shape == (3, 3)
+    alpha=0.80
         
-        axisz = 0
-        axisx = 0
+    H_ee_camera = detector.get_H_ee_camera() # Camera in terms of end_effector
+    H_c_ee = H_ee_camera 
+    _,H_ee_w = fk.forward(q) # End-Effector in terms of world
+    H_c_w = H_ee_w @ H_c_ee # Camera in terms of world
+    rospy.sleep(2)
+    
+    for i in range(5):
+            
+        b_reading_1 = []
+        b_reading_2 = []
         
+        # detector.get_detections() = Block in terms of camera
+        block_det = detector.get_detections()
+            
+        for (name_1, pose_1) in block_det:
+            b_reading_1.append(pose_1)
+            print(name_1,'\n',pose_1)
+        b_reading_1 = np.array(b_reading_1)
+
+        for (name_2, pose_2) in block_det:
+            b_reading_2.append(pose_2)
+            print(name_2,'\n',pose_2)
+        b_reading_2 = np.array(b_reading_2)
+        # print(block_pose2.shape)
+
+        b_reading_comp = comp_filter(b_reading_2, b_reading_2, alpha)
+        b_reading_1 = b_reading_2
+        b_reading_2 = b_reading_comp
+
+        block_pose_world=[] # Block in terms of world
+    for i in range(b_reading_comp.shape[0]):
+        block_pose_world.append(H_c_w @ b_reading_comp[i])
+
+        # Returns Block in terms of world
+    
+    return len(block_pose_world),block_pose_world
+
+
+def swap_columns(matrix, col1, col2):
+        """
+        
+        """
+        #matrix[:, col1], matrix[:, col2] = matrix[:, col2], matrix[:, col1]
+        matrix[:, [col1, col2]] = matrix[:, [col2, col1]]
+        
+        # Debug print to show matrix after swap
+        #print("Matrix after swap:")
+        #print(matrix)
+        
+        return matrix
+
+
+def rotation_matrix_to_angle_axis(rotation_matrix):
+        """
+        
+        """
+        # Extract the 3x3 rotation matrix
+        rotation = rotation_matrix[:3, :3]
+        abs_rotation = np.abs(rotation)
+    
+    # Find the column closest to [0, 0, 1]
+        target_column = np.array([0, 0, 1])
+        min_diff = 0.2  
+        col_to_swap = -1
+    
+     # Loop through each column to find the one closest to [0, 0, 1]
         for i in range(3):
-            if np.isclose(R[2,i], 1, 1e-03) or np.isclose(R[2,i], -1, 1e-03):
-              axisz = i
-              axisx = i+1
-            if axisx == 3:
-              axisx = 0
-
-        first_column = R[:,axisx]
-        last_column = R[:,axisz]
-        second_column = np.cross(last_column, first_column)
-         
-
+        # Calculate the absolute Euclidean distance to [0, 0, 1]
+            diff = np.linalg.norm(np.abs(abs_rotation[:, i] - target_column))  # Absolute distance to [0, 0, 1]
         
-        rotation_matrix = np.column_stack((first_column, second_column, last_column))
-
-        cos_theta = rotation_matrix[0, 0]
-        sin_theta = rotation_matrix[1, 0]
-
-
-        theta = np.arctan2(sin_theta, cos_theta)
-
-
+        # If this column is the closest, update the swap index
+            if diff < min_diff:
+                min_diff = diff
+                col_to_swap = i
+                print("Col to swap")
+                print(i)
+                
+          # Debug: Which column to swap
+            #print(f"Column {col_to_swap} is closest to [0, 0, 1] and will be swapped with column 2.")
+    
+    
+    # Swap the column that is closest to [0, 0, 1] with the 3rd column
+        rotation = swap_columns(rotation, col_to_swap, 2)
+        print("Adjusted rotation = ")
+        print(rotation)
+    
+    # Calculate the rotation angle about the z-axis using atan2
+        rz = np.arctan2(rotation[1, 0], rotation[0, 0])
         
-        return theta
+    
+    # Optionally adjust the angle to stay within [-pi, pi]
+        if rz > np.pi / 4:
+            rz = rz - np.pi / 2
+            #print(rz)
+        elif rz < -np.pi / 4:
+            rz = rz + np.pi / 2
+            #print(rz)
+        print("Calculated rz - ")
+        print(rz)
+        
+        return rz
+
+# def rotation_matrix_to_angle_axis(R):
+
+#         assert R.shape == (3, 3)
+
+#         axis = 0
+#         angsin = 0
+#         angcos = 0
+#         for i in range(3):
+#             if np.isclose(R[2,i], 1, 1e-04):
+#                 axis = i
+#         if axis ==0:
+#             angcos = R[0,1]
+#             angsin = R[0,2]
+#         if axis ==1:
+#             angcos = R[0,0]
+#             angsin = R[0,2]
+#         if axis ==2:
+#             angcos = R[0,0]
+#             angsin = R[0,1]
+            
+            
+#         angle = np.arctan2(angsin,angcos)
+#         while angle > 2.897 or angle < -2.896:
+#             if angle > 2.897:
+#                 angle -= pi/2
+#             if angle < -2.896:
+#                 angle +=pi/2
+    
+#         return angle
 
 def move_to_static_block(block, q_current):
 
@@ -135,11 +184,11 @@ def move_to_static_block(block, q_current):
         
         q_align = calculate_q_via_ik(ee_align, q_current)
         if q_align is not None:
-            q_align[-1] = angle
+            q_align[-1] = q_align[-1] - angle
 
         q_block = calculate_q_via_ik(ee_goal, q_align)
         if q_block is not None:
-            q_block[-1] = angle 
+            q_block[-1] = q_block[-1] - angle 
 
         return q_align, q_block
 
@@ -229,12 +278,13 @@ def dynamic_adjustment(x,y, w_t):
 
     r = np.sqrt(x**2 + y**2)
     theta = np.arctan2(y, x)
-    
+    if r<0.22:
+        return None, None
     # Update the angle
     theta += w_t
     
     # Convert back to Cartesian
-    return r * np.cos(theta), r * np.sin(theta)
+    return r * np.cos(theta), r * np.sin(theta), theta
 
 def move_to_dynamic_block(block, q_current):
 
@@ -249,23 +299,20 @@ def move_to_dynamic_block(block, q_current):
     print("ee_goal_before adjustment: ", ee_goal)
     x = ee_goal[0, 3]
     y = ee_goal[1, 3]
-    if team == "red":
-        y -= 0.990
-    else:
-        y +=0.990
-     
+    y -= 0.990
+    
+    angle = rotation_matrix_to_angle_axis(ee_goal[:3,:3])
 
-    xn,yn =  dynamic_adjustment(x,y, 0.22)
-    if team == "red":
-        yn += 0.990
-    else:
-        yn -=0.990
+    xn,yn, theta =  dynamic_adjustment(x,y, 0.45)
+    if xn == None:
+        return None
+    yn += 0.990
 
     ee_goal[0, 3] = xn
     ee_goal[1, 3] = yn
     print("ee_goal_ adjustment: ", ee_goal)
     
-                                     
+    ee_goal[2,3] = 0.22                             
     # angle = rotation_matrix_to_angle_axis(block[:3,:3])       
     angle = pi
 
@@ -273,7 +320,7 @@ def move_to_dynamic_block(block, q_current):
     if q_block is not None:
         q_block[-1] = q_block[-1] - angle 
 
-    return q_block
+    return q_block, theta, angle
 
 if __name__ == "__main__":
     try:
@@ -288,7 +335,7 @@ if __name__ == "__main__":
     detector = ObjectDetector()
 
     start_position = np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866])
-    arm.safe_move_to_position(start_position) # on your mark!
+    # arm.safe_move_to_position(start_position) # on your mark!
 
     print("\n****************")
     if team == 'blue':
@@ -321,7 +368,7 @@ if __name__ == "__main__":
 
     ####################################################################################################
 
-    # Static Pick and Place
+    # # Static Pick and Place
     q_above_pickup, q_above_drop = set_static_view(start_position)
 
     # Move to the above pickup position
@@ -330,7 +377,7 @@ if __name__ == "__main__":
 
     # Get the block world position
     print("Getting the block world position")
-    block_count, block_world = get_block_world(q_above_pickup, num_detects=5)
+    block_count, block_world = get_block_world(q_above_pickup)
 
     #EDIT THE BLOCK WORLD TO RETURN DICTIONARIES, WILL BE LOT MROE USEFUL WITH NOISE
     ########################################################################
@@ -373,7 +420,7 @@ if __name__ == "__main__":
 
         # Detect where to place from the block world
         print("Detecting where to place")
-        target_block_count, target_block_world = get_block_world(q_above_drop, num_detects=2)
+        target_block_count, target_block_world = get_block_world(q_above_drop)
 
 
         print(target_block_count, target_block_world)
@@ -402,7 +449,7 @@ if __name__ == "__main__":
         arm.safe_move_to_position(q_above_drop)
         arm.safe_move_to_position(q_above_pickup)
 
-        block_count, block_world = get_block_world(q_above_pickup, num_detects=5)
+        block_count, block_world = get_block_world(q_above_pickup)
 
         iteration += 1
     
@@ -420,7 +467,7 @@ if __name__ == "__main__":
 
     # Get the block world position
     print("Getting the block world position")
-    block_count, block_world = get_block_world(q_above_rotate, num_detects=5)
+    block_count, block_world = get_block_world(q_above_rotate)
 
     block_detected_at = time_in_seconds()
     dynamic_start_time = time_in_seconds()
@@ -441,9 +488,14 @@ if __name__ == "__main__":
         block_detected_at = time_in_seconds()
 
         print("Moving to the block")
-        q_block = move_to_dynamic_block(block_world[0], q_above_rotate)
+        q_block, theta, angle = move_to_dynamic_block(block_world[0], q_above_rotate)
+        if np.all(q_block == None):
+            continue
         arm.safe_move_to_position(q_block)
-
+        
+        q_block[-1] = q_block[-1] + theta + angle
+        
+        arm.safe_move_to_position(q_block)
         print("Closing the gripper")
         grab_block(grab_ee_dist, grab_ee_force)
 
@@ -457,7 +509,7 @@ if __name__ == "__main__":
 
         # Detect where to place from the block world
         print("Detecting where to place")
-        target_block_count, target_block_world = get_block_world(q_above_drop_stacked, num_detects=2)
+        target_block_count, target_block_world = get_block_world(q_above_drop_stacked)
 
         if target_block_count == 0:
             q_place = move_to_place(0, q_above_drop)
@@ -482,8 +534,7 @@ if __name__ == "__main__":
         arm.safe_move_to_position(q_above_drop_stacked)
         arm.safe_move_to_position(q_above_rotate)
 
-        block_count, block_world = get_block_world(q_above_rotate, num_detects=5)
-
+        block_count, block_world = get_block_world(q_above_rotate)
     # Move to the above drop stacked position
     arm.safe_move_to_position(q_above_drop_stacked)
 
