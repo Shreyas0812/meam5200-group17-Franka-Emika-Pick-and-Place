@@ -343,8 +343,11 @@ def pick_place_static(q_above_pickup, q_drop, stack_block_num=4):
             # USE EMERGENCY Q
             q_place = emergency_qs[f'q_place_{iteration+1}']
 
+        print("\n\n")
+        print("ADD TO EMERGENCY IF WORKED IN TESTING PHASE")
         print("Iteration: ", iteration)
         print("q_place: ", q_place)
+        print("\n\n")
 
         # Move to the place location
         print("Moving to the place location")
@@ -510,7 +513,13 @@ def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, stack_block_num=4):
         if q_place is None:
             print("Failed to find IK Solution for q_place")
             # USE EMERGENCY Q
-            q_place = emergency_qs[f'q_place_{iteration}']
+            q_place = emergency_qs[f'q_place_{iteration+1}']
+
+        print("\n\n")
+        print("ADD TO EMERGENCY IF WORKED IN TESTING PHASE")
+        print("Iteration: ", iteration)
+        print("q_place: ", q_place)
+        print("\n\n")
 
         # Move to the place location
         print("Moving to the place location")
@@ -650,8 +659,7 @@ if __name__ == "__main__":
             'q_above_drop': np.array([0.17320456, -0.01933834, 0.19194961, -1.77723386, 0.00375479, 1.75824931, 1.14981758]),
             'q_above_rotate': np.array([-0.82870465, -0.93406695, 1.72730474, -1.14483025, 0.92926407, 1.43886509, -1.18035082]),
             'q_above_drop_stacked': np.array([0.32585352, 0.25697452, 0.05841297, -0.86094054, -0.01650469, 1.1175494, 1.160523]),
-            
-            # EDIT THIS
+
             'q_dynamic_pickup': np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866]),  
 
             'q_place_1': np.array([ 0.30539492, 0.25206026, 0.03827549, -2.00221296, -0.01230638, 2.25405925, 1.1356298 ]),
@@ -734,9 +742,19 @@ if __name__ == "__main__":
         print("Failed to find IK Solution for q_above_drop_stacked, using emergency q")
         q_above_drop_stacked = emergency_qs['q_above_drop_stacked']
 
+    print("\n")
+    print("\n")
+    print("ADD TO EMERGENCY IF WORKED IN TESTING PHASE")
+    print("q_above_pickup: ", q_above_pickup)
+    print("q_above_drop: ", q_above_drop)
+    print("q_above_rotate: ", q_above_rotate)
+    print("q_above_drop_stacked: ", q_above_drop_stacked)
+    print("\n")
+    print("\n")
+
     ####################################################################################################
     static_start_time = time_in_seconds()
-    pick_place_static(q_above_pickup, q_above_drop_stacked, stack_block_num=8)
+    pick_place_static(q_above_pickup, q_above_drop_stacked, stack_block_num=4)
     static_end_time = time_in_seconds()
 
     print("Time taken for static pick and place: ", static_end_time - static_start_time, " seconds")
