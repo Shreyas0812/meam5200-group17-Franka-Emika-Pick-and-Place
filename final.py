@@ -295,6 +295,7 @@ def pick_place_static(q_above_pickup, q_drop, stack_block_num=4):
 
         # Move to the block
         print("Moving to the block")
+
         q_align, q_block = move_to_static_block(block_world[0], q_above_pickup)
 
         if q_align is None or q_block is None:
@@ -378,6 +379,17 @@ def pick_place_static(q_above_pickup, q_drop, stack_block_num=4):
 
 ##################################################--DYNAMIC--##################################################
 
+def fail_safe_dynamic(sleep_time):
+
+    if team == "red":
+        q_block =  np.array([-1.16181686, -1.23787629, 1.89932989, -0.92382715, 1.10956857, 1.61714016, -1.23367691])
+        arm.safe_move_to_position(q_block)
+        rospy.sleep(sleep_time)
+        
+    else:
+        q_block =  np.array([0.95770173, -1.19635319, -1.96283149, -0.95738325, -1.04094497, 1.65109919, -0.53810455])
+        arm.safe_move_to_position(q_block)
+        rospy.sleep(sleep_time)
 
 def move_to_dynamic_block(block, q_current):
 
@@ -420,7 +432,7 @@ def move_to_dynamic_block(block, q_current):
 
     return q_block
 
-def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, stack_block_num=4):
+def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, stack_block_num=4, sleep_time=2):
 
     # Move to the above rotate position
     print("Moving to above rotate position")
@@ -475,15 +487,11 @@ def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, stack_block_num=4):
 
         if q_block is None:
             print("Failed to find IK Solution")
+            fail_safe_dynamic(sleep_time)
+        else:
+            arm.safe_move_to_position(q_block)
 
-            # remove the block from the block world
-            block_world.pop()
-            block_count -= 1
-            continue
-        
-        arm.safe_move_to_position(q_block)
-
-        movement_made_at = time_in_seconds()
+            movement_made_at = time_in_seconds()
 
         # Close the gripper
         print("Closing the gripper")
@@ -497,19 +505,20 @@ def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, stack_block_num=4):
 
         # Detect where to place from the block world
         print("Detecting where to place")
-        target_block_count, target_block_world = get_block_world(q_above_drop_stacked, num_detects=2)
-
-        if target_block_count == 0:
-            q_place = move_to_place(0, q_above_drop)
+        if use_comp_filter:
+            target_block_count, target_block_world = get_block_world_comp_filter(q_above_drop_stacked)
         else:
-            z_value =  round((max([block[2,3] - red_blue_black_box_height for block in target_block_world]) * scaling_factor))            
-            print("z_value: ", z_value)
+            target_block_count, target_block_world = get_block_world(q_above_drop_stacked, num_detects=2)
 
-            if z_value >= iteration:
-                q_place = move_to_place(z_value, q_above_drop)
-            else:
-                q_place = move_to_place(iteration, q_above_drop)
+        target_block_world = fixOffset(target_block_world)
 
+        z_value =  round((max([block[2,3] for block in target_block_world]) * scaling_factor))            
+        print("z_value: ", z_value)
+
+        if z_value >= 4:
+            q_place = move_to_place(z_value, q_above_drop)
+        else:
+            q_place = move_to_place(iteration, q_above_drop)
         if q_place is None:
             print("Failed to find IK Solution for q_place")
             # USE EMERGENCY Q
@@ -704,8 +713,8 @@ if __name__ == "__main__":
     drop_ee_dist = 0.09
     drop_ee_force = 10
     
-    grab_ee_dist = 0.048
-    grab_ee_force = 52
+    grab_ee_dist = 0.046
+    grab_ee_force = 55
 
     use_comp_filter = True
     comp_filter_alpha = 0.80
@@ -715,10 +724,14 @@ if __name__ == "__main__":
     z_fixed = 0.225
 
     w_t_value = 0.45
-    r_threshold_value = 0.22
+    r_threshold_value = 0.19
 
     y_adjustment = 0.990
     zn_fixed = 0.22
+
+    sleep_time = 2
+
+    tune_for_q = False
 
     # Static Pick and Place
     q_above_pickup, q_above_drop = set_static_view(start_position)
@@ -752,6 +765,32 @@ if __name__ == "__main__":
     print("\n")
     print("\n")
 
+    if tune_for_q:
+        arm.open_gripper()
+        lowerLim = np.array([-2.8973,-1.7628,-2.8973,-3.0718,-2.8973,-0.0175,-2.8973])
+        upperLim = np.array([2.8973,1.7628,2.8973,-0.0698,2.8973,3.7525,2.8973])
+
+        # q_test = deepcopy(q_above_rotate)
+        q_test = [-0.96727773, -1.18120756, 1.90118979, -1.10456854, 1.07419833, 1.6682946, -1.19594977]
+        arm.safe_move_to_position(q_test)
+
+    while tune_for_q:
+        print("Tuning for q_test")
+        print("Current q_test", q_test)
+        joint_number = input("Enter joint number to tune: ")
+        print("Current joint value: ", q_test[int(joint_number)], "   Limits: ", lowerLim[int(joint_number)], " - ", upperLim[int(joint_number)])
+
+        joint_value = input("Enter joint value: ")
+        q_test[int(joint_number)] = float(joint_value)
+
+        arm.safe_move_to_position(q_test)
+
+        if input("Continue tuning? (y/n): ") == 'n':
+            break  
+
+    if tune_for_q:
+        print("Final q_test: ", q_test)
+
     ####################################################################################################
     static_start_time = time_in_seconds()
     pick_place_static(q_above_pickup, q_above_drop_stacked, stack_block_num=4)
@@ -761,7 +800,7 @@ if __name__ == "__main__":
     ####################################################################################################
 
     dynamic_strat_time = time_in_seconds()
-    pick_place_dynamic(q_above_rotate, q_above_drop_stacked, stack_block_num=4)
+    pick_place_dynamic(q_above_rotate, q_above_drop_stacked, stack_block_num=4, sleep_time=sleep_time)
     dynamic_end_time = time_in_seconds()
 
     print("Time taken for dynamic pick and place: ", dynamic_end_time - dynamic_strat_time, " seconds")
