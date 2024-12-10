@@ -82,21 +82,6 @@ def fixOffset(block_world):
 
     return block_world
 
-
-def dynamic_adjustment(x,y, w_t, r_threshold = 0.19):
-    r = np.sqrt(x**2 + y**2)
-    theta = np.arctan2(y, x)
-
-    if r<r_threshold:
-        return None, None
-    
-    # Update the angle
-    theta += w_t
-    
-    # Convert back to Cartesian
-    return r * np.cos(theta), r * np.sin(theta)
-
-
 ##################################################--DETECTIONS--##################################################
 
 def comp_filter(curr_reading, prev_reading, alpha):
@@ -216,23 +201,6 @@ def drop_block(distance=0.09, force=10):
 def grab_block(distance=0.048, force=52):
     arm.exec_gripper_cmd(distance, force)
 
-def move_to_place(T, q_current):
-        if team == 'red':
-            place_location = np.array(([1,0,0, 0.562],
-                        [0,-1,0, 0.2], 
-                        [0,0,-1,0.23 + T*0.053],
-                        [0,0,0,1]))
-        else:
-            place_location = np.array(([1,0,0, 0.562],
-                        [0,-1,0, -0.2], 
-                        [0,0,-1,0.23 + T*0.053],
-                        [0,0,0,1]))
-
-        q_place = calculate_q_via_ik(place_location, q_current)
-
-        return q_place
-
-##################################################--STATIC--##################################################
 
 def move_to_static_block(block, q_current, z_above_block = 0.4, z_block=0.225):
 
@@ -264,6 +232,25 @@ def move_to_static_block(block, q_current, z_above_block = 0.4, z_block=0.225):
             return None, None
         
         return q_align, q_block
+
+
+def move_to_place(T, q_current):
+        if team == 'red':
+            place_location = np.array(([1,0,0, 0.562],
+                        [0,-1,0, 0.2], 
+                        [0,0,-1,0.23 + T*0.053],
+                        [0,0,0,1]))
+        else:
+            place_location = np.array(([1,0,0, 0.562],
+                        [0,-1,0, -0.2], 
+                        [0,0,-1,0.23 + T*0.053],
+                        [0,0,0,1]))
+
+        q_place = calculate_q_via_ik(place_location, q_current)
+
+        return q_place
+
+##################################################--STATIC--##################################################
 
 def pick_place_static(q_above_pickup, q_drop, stack_block_num=4):
 
@@ -343,9 +330,6 @@ def pick_place_static(q_above_pickup, q_drop, stack_block_num=4):
             # USE EMERGENCY Q
             q_place = emergency_qs[f'q_place_{iteration+1}']
 
-        print("Iteration: ", iteration)
-        print("q_place: ", q_place)
-
         # Move to the place location
         print("Moving to the place location")
         arm.safe_move_to_position(q_place)
@@ -375,166 +359,8 @@ def pick_place_static(q_above_pickup, q_drop, stack_block_num=4):
 
 ##################################################--DYNAMIC--##################################################
 
-
-def move_to_dynamic_block(block, q_current):
-
-    ee_rot = np.array(([1,0,0],
-        			[0,-1,0], 
-        			[0,0,-1],
-                    [0, 0, 0]))
-    block_pos = block[:,3]
-    block_pos = block_pos.reshape(4,1)
-    ee_goal = np.hstack((ee_rot,block_pos))
-
-    x = ee_goal[0, 3]
-    y = ee_goal[1, 3]
-    if team == 'red':
-        y -= y_adjustment
-    else:
-        y += y_adjustment
-
-    xn,yn = dynamic_adjustment(x,y, w_t_value, r_threshold_value)
-
-    if xn is None:
-        return None
-    
-    if team == 'red':
-        yn += y_adjustment
-    else:
-        yn -= y_adjustment
-
-    ee_goal[0, 3] = xn
-    ee_goal[1, 3] = yn
-    ee_goal[2, 3] = zn_fixed
-
-    q_block = calculate_q_via_ik(ee_goal, q_current)
-    if q_block is not None:
-        if team == "red":    
-            if q_block[-1] - pi < 2.897 and q_block[-1] - pi > -2.897:
-                q_block[-1] = q_block[-1] - pi
-            else:
-                q_block[-1] = q_block[-1] + pi
-
-    return q_block
-
 def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, stack_block_num=4):
-
-    # Move to the above rotate position
-    print("Moving to above rotate position")
-    arm.safe_move_to_position(q_above_rotate)
-
-    # Open the gripper
-    print("Opening the gripper")
-    arm.open_gripper()
-
-    # Get the block world position
-    print("Getting the block world position")
-    if use_comp_filter:
-        block_count, block_world = get_block_world_comp_filter(q_above_rotate)
-    else:
-        block_count, block_world = get_block_world(q_above_rotate, num_detects=5)
-
-    block_world = fixOffset(block_world)
-
-    blocks_detected_at = time_in_seconds()
-
-    movement_made_at = time_in_seconds()
-
-    # Asuming all 4 static blocks are stacked
-    iteration = 4
-
-    while True:
-
-        # if (block_count == 0 and time_in_seconds() - blocks_detected_at > 20) or (time_in_seconds() - movement_made_at > 60):
-        #     # Use emergency q and try luck method ... we can also add if no movement is made in 60 seconds then same condition
-        #     break
-
-        if block_count == 0:
-            rospy.sleep(1)
-            if use_comp_filter:
-                block_count, block_world = get_block_world_comp_filter(q_above_rotate)
-            else:
-                block_count, block_world = get_block_world(q_above_rotate, num_detects=5)
-            block_world = fixOffset(block_world)
-            continue
-        
-        else:
-            blocks_detected_at = time_in_seconds()
-            print("Block Detected: ", block_count)
-        ####################################################################################################
-
-        # Pick Sequence
-        print("Starting the pick sequence")
-
-        # Move to the block
-        print("Moving to the block")
-        q_block = move_to_dynamic_block(block_world[-1], q_above_rotate)
-
-        if q_block is None:
-            print("Failed to find IK Solution")
-
-            # remove the block from the block world
-            block_world.pop()
-            block_count -= 1
-            continue
-        
-        arm.safe_move_to_position(q_block)
-
-        movement_made_at = time_in_seconds()
-
-        # Close the gripper
-        print("Closing the gripper")
-        grab_block(grab_ee_dist, grab_ee_force)
-
-        ####################################################################################################
-
-        # Place Sequence
-        print("Starting the place sequence")
-        arm.safe_move_to_position(q_above_drop_stacked)
-
-        # Detect where to place from the block world
-        print("Detecting where to place")
-        target_block_count, target_block_world = get_block_world(q_above_drop_stacked, num_detects=2)
-
-        if target_block_count == 0:
-            q_place = move_to_place(0, q_above_drop)
-        else:
-            z_value =  round((max([block[2,3] - red_blue_black_box_height for block in target_block_world]) * scaling_factor))            
-            print("z_value: ", z_value)
-
-            if z_value >= iteration:
-                q_place = move_to_place(z_value, q_above_drop)
-            else:
-                q_place = move_to_place(iteration, q_above_drop)
-
-        if q_place is None:
-            print("Failed to find IK Solution for q_place")
-            # USE EMERGENCY Q
-            q_place = emergency_qs[f'q_place_{iteration}']
-
-        # Move to the place location
-        print("Moving to the place location")
-        arm.safe_move_to_position(q_place)
-
-        # Drop the block
-        print("Dropping the block")
-        arm.open_gripper()
-
-        ####################################################################################################
-
-        # Reset sequence
-        print("Resetting the sequence")
-        arm.safe_move_to_position(q_above_drop_stacked)
-
-        iteration += 1
-
-        arm.safe_move_to_position(q_above_rotate)
-
-        if use_comp_filter:
-            block_count, block_world = get_block_world_comp_filter(q_above_rotate)
-        else:
-            block_count, block_world = get_block_world(q_above_rotate, num_detects=5)
-
+    pass
 
 ##################################################--SETUP FUNCTIONS--##################################################
 
@@ -651,17 +477,16 @@ if __name__ == "__main__":
             'q_above_rotate': np.array([-0.82870465, -0.93406695, 1.72730474, -1.14483025, 0.92926407, 1.43886509, -1.18035082]),
             'q_above_drop_stacked': np.array([0.32585352, 0.25697452, 0.05841297, -0.86094054, -0.01650469, 1.1175494, 1.160523]),
             
-            # EDIT THIS
-            'q_dynamic_pickup': np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866]),  
+            'q_dynamic_pickup': np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866]),
 
             'q_place_1': np.array([ 0.30539492, 0.25206026, 0.03827549, -2.00221296, -0.01230638, 2.25405925, 1.1356298 ]),
             'q_place_2': np.array([ 0.26846675, 0.18736229, 0.07729645, -1.94692244, -0.01700818, 2.13367295, 1.13889039]),
             'q_place_3': np.array([ 0.24293919, 0.14088693, 0.10418676, -1.86919397, -0.01613017, 2.00927691, 1.13834794]),
             'q_place_4': np.array([ 0.22870994, 0.11398602, 0.11935287, -1.76777076, -0.01422182, 1.88092342, 1.13703419]),
-            'q_place_5': np.array([ 0.22608491, 0.10852209, 0.12330291, -1.63975945, -0.01353202, 1.74744816, 1.13644607]),
-            'q_place_6': np.array([ 0.23668411, 0.12781881, 0.11520717, -1.47876482, -0.01466259, 1.60574168, 1.13687013]),
-            'q_place_7': np.array([ 0.26356994, 0.17972047, 0.09176603, -1.26934866, -0.01650491, 1.44834554, 1.13724803]),
-            'q_place_8': np.array([ 0.312117  , 0.29223733, 0.04178058, -0.95864048, -0.01267773, 1.25066104, 1.13353644])
+            'q_place_5': np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866]),
+            'q_place_6': np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866]),
+            'q_place_7': np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866]),
+            'q_place_8': np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866])
         }
     else:
         emergency_qs = {
@@ -676,10 +501,10 @@ if __name__ == "__main__":
             'q_place_2': np.array([-0.15634514, 0.19028437, -0.19543331, -1.94677001, 0.04342684, 2.13309093, 0.41389785]),
             'q_place_3': np.array([-0.16164282, 0.14260095, -0.18986081, -1.8691338,  0.02962428, 2.00903732, 0.42320238]),
             'q_place_4': np.array([-0.16548465, 0.11510468, -0.18608828, -1.76774132, 0.0223147,  1.88080349, 0.4282202 ]),
-            'q_place_5': np.array([-0.16842188, 0.10950131, -0.18476651, -1.63973581, 0.02039553, 1.74735183, 0.42970885]),
-            'q_place_6': np.array([-0.1730075 , 0.1290606 , -0.1850433 , -1.47872916, 0.02369644, 1.60560047, 0.42802714]),
-            'q_place_7': np.array([-0.18427348, 0.18172611, -0.18489216, -1.26926085, 0.03348328, 1.44802386, 0.42331185]),
-            'q_place_8': np.array([-0.21997884, 0.29517078, -0.17147136, -0.95836987, 0.05233214, 1.24986425, 0.41775002])
+            'q_place_5': np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866]),
+            'q_place_6': np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866]),
+            'q_place_7': np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866]),
+            'q_place_8': np.array([-0.01779206, -0.76012354,  0.01978261, -2.34205014, 0.02984053, 1.54119353+pi/2, 0.75344866])
         }
 
     start_time = time_in_seconds()
@@ -706,12 +531,6 @@ if __name__ == "__main__":
     y_offset = 0
     z_fixed = 0.225
 
-    w_t_value = 0.45
-    r_threshold_value = 0.22
-
-    y_adjustment = 0.990
-    zn_fixed = 0.22
-
     # Static Pick and Place
     q_above_pickup, q_above_drop = set_static_view(start_position)
 
@@ -736,7 +555,7 @@ if __name__ == "__main__":
 
     ####################################################################################################
     static_start_time = time_in_seconds()
-    pick_place_static(q_above_pickup, q_above_drop_stacked, stack_block_num=8)
+    pick_place_static(q_above_pickup, q_above_drop, stack_block_num=4)
     static_end_time = time_in_seconds()
 
     print("Time taken for static pick and place: ", static_end_time - static_start_time, " seconds")
