@@ -76,8 +76,8 @@ def rotation_matrix_to_angle_axis(rotation_matrix):
 def fixOffset(block_world):
 
     for i in range(len(block_world)):
-        block_world[i][0, 3] = block_world[i][0, 3] - x_offset
-        block_world[i][1, 3] = block_world[i][0, 3] - y_offset
+        block_world[i][0, 3] -= x_offset
+        block_world[i][1, 3] -= y_offset
         block_world[i][2, 3] = z_fixed
 
     return block_world
@@ -329,7 +329,6 @@ def pick_place_static(q_above_pickup, q_drop, stack_block_num=4):
             print("Failed to find IK Solution for q_place")
             # USE EMERGENCY Q
             q_place = emergency_qs[f'q_place_{iteration+1}']
-            continue
 
         # Move to the place location
         print("Moving to the place location")
@@ -536,18 +535,22 @@ if __name__ == "__main__":
     q_above_pickup, q_above_drop = set_static_view(start_position)
 
     if q_above_pickup is None:
+        print("Failed to find IK Solution for q_above_pickup, using emergency q")
         q_above_pickup = emergency_qs['q_above_pickup']
     
     if q_above_drop is None:
+        print("Failed to find IK Solution for q_above_drop, using emergency q")
         q_above_drop = emergency_qs['q_above_drop']
 
     # Dynamic Pick and Place
     q_above_rotate, q_above_drop_stacked = set_dynamic_block_view(start_position)
 
     if q_above_rotate is None:
+        print("Failed to find IK Solution for q_above_rotate, using emergency q")
         q_above_rotate = emergency_qs['q_above_rotate']
     
     if q_above_drop_stacked is None:
+        print("Failed to find IK Solution for q_above_drop_stacked, using emergency q")
         q_above_drop_stacked = emergency_qs['q_above_drop_stacked']
 
     ####################################################################################################
