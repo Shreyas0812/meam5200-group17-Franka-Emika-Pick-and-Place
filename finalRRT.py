@@ -15,6 +15,7 @@ from core.utils import time_in_seconds
 from lib.IK_position_null import IK
 from lib.calculateFK import FK
 
+from lib.rrt_t1 import rrt
 ##################################################--HELPER FUNCTIONS--##################################################
 
 def calculate_q_via_ik(pos, q_start, verify=True):
@@ -331,7 +332,23 @@ def pick_place_static(q_above_pickup, q_drop, stack_block_num=4):
 
         # Move to the above drop position
         print("Moving to above drop position")
-        arm.safe_move_to_position(q_drop)
+
+        # path = rrt(q_block, q_drop)
+        # if len == 0:
+        #     print("Failed to find path")
+        #     exit(1)
+        # print("Path found Succesfully")
+
+        # #Executing the planned path
+        # for i, config in enumerate(path):
+        #     print(f"Moving to config {i+1}/{len(path)}")
+        #     arm.safe_move_to_position(config)
+        # print("Path executed successfully")
+
+
+        #arm.safe_move_to_position(q_drop)
+
+
 
         # # Detect where to place from the block world
         # print("Detecting where to place")
@@ -363,7 +380,22 @@ def pick_place_static(q_above_pickup, q_drop, stack_block_num=4):
 
         # Move to the place location
         print("Moving to the place location")
-        arm.safe_move_to_position(q_place)
+
+
+        path = rrt(q_block, q_place)
+        if len == 0:
+            print("Failed to find path")
+            exit(1)
+        print("Path found Succesfully")
+
+        #Executing the planned path
+        for i, config in enumerate(path):
+            print(f"Moving to config {i+1}/{len(path)}")
+            arm.safe_move_to_position(config)
+        print("Path executed successfully")
+
+
+        #arm.safe_move_to_position(q_place)
 
         # Drop the block
         print("Dropping the block")
@@ -505,7 +537,7 @@ def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, stack_block_num=6):
 
         # Place Sequence
         print("Starting the place sequence")
-        arm.safe_move_to_position(q_above_drop_stacked)
+        # arm.safe_move_to_position(q_above_drop_stacked)
 
         # Detect where to place from the block world
         print("Detecting where to place")
@@ -542,7 +574,19 @@ def pick_place_dynamic(q_above_rotate, q_above_drop_stacked, stack_block_num=6):
 
         # Move to the place location
         print("Moving to the place location")
-        arm.safe_move_to_position(q_place)
+        # arm.safe_move_to_position(q_place)
+
+        path = rrt(q_block, q_place)
+        if len == 0:
+            print("Failed to find path")
+            exit(1)
+        print("Path found Succesfully")
+
+        #Executing the planned path
+        for i, config in enumerate(path):
+            print(f"Moving to config {i+1}/{len(path)}")
+            arm.safe_move_to_position(config)
+        print("Path executed successfully")
 
         # Drop the block
         print("Dropping the block")
